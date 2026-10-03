@@ -2,8 +2,10 @@ import { DRUMS } from '../audio/analysis'
 import type { Drum, DrumGrid as Grid } from '../audio/analysis'
 import type { CellMark } from '../audio/compare'
 import { SAY } from '../audio/compare'
+import { Icon } from './Icon'
 
 const NAME: Record<Drum, string> = { kick: 'Kick', snare: 'Snare', hat: 'Hi-hat' }
+const ICON = { kick: 'kick', snare: 'snare', hat: 'hihat' } as const
 const COUNT = ['1', 'e', '&', 'a', '2', 'e', '&', 'a', '3', 'e', '&', 'a', '4', 'e', '&', 'a']
 
 type Props = {
@@ -32,8 +34,11 @@ export function DrumGrid({ grid, bars, step, marks, onToggle }: Props) {
         {DRUMS.map((d) => (
           <div className="row" key={d}>
             <div className="row-label">
-              <b>{NAME[d]}</b>
-              <span>say {SAY[d]}</span>
+              <Icon name={ICON[d]} size={bars === 1 ? 30 : 24} />
+              <span className="row-name">
+                <b>{NAME[d]}</b>
+                <span>{SAY[d]}</span>
+              </span>
             </div>
             {grid[d].slice(0, len).map((on, s) => {
               const mark = marks?.[d][s]

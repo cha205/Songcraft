@@ -1,3 +1,5 @@
+import { Icon } from '../components/Icon'
+import { StepHead } from '../components/StepHead'
 import { PROGRESSIONS } from '../data/templates'
 import type { Template, VibeId } from '../data/templates'
 
@@ -23,40 +25,58 @@ export function ChordsStep(p: Props) {
   const same = (a: string[], b: string[]) => a.join() === b.join()
   return (
     <section className="step">
-      <h2>Step 2: the chords</h2>
-      <p className="lead">
-        A chord is three notes played together. It sets the mood under everything else. Each box below lasts one bar of your beat.
-        <b> Major chords</b> (C, F, G) sound bright. <b>Minor chords</b> (Am, Dm, Em) sound sad or serious.
-      </p>
+      <StepHead n={2} icon="keys" title="The chords">
+        A chord is three notes played together. It sets the mood under everything else, and each box lasts one bar of your beat.
+        <b> Major chords</b> sound bright. <b>Minor chords</b> (the ones with an m) sound sad or serious.
+      </StepHead>
 
-      <div className="panel">
-        <div className="panel-head">
-          <h3>Your chords</h3>
+      <div className="card pad" style={{ ['--tab' as string]: 'var(--purple)', ['--tab-d' as string]: 'var(--purple-d)' }}>
+        <span className="card-tab">
+          <Icon name="keys" /> Your chords
+        </span>
+        <div className="card-head">
+          <span className="card-title">{p.chords.join(' - ')}</span>
           {p.playing ? (
-            <button className="btn primary" onClick={p.onStop}>Stop</button>
+            <button className="btn navy" onClick={p.onStop}>
+              <Icon name="stop" size={24} /> Stop
+            </button>
           ) : (
-            <button className="btn primary" onClick={p.onPlay}>Play with my beat</button>
+            <button className="btn green" onClick={p.onPlay}>
+              <Icon name="play" size={24} /> Play with my beat
+            </button>
           )}
         </div>
         <div className="chord-row">
           {p.chords.map((c, i) => (
             <div key={i} className={`chord${isMinor(c) ? ' minor' : ' major'}${bar === i ? ' now' : ''}`}>
-              <span>Bar {i + 1}</span>
+              <span className="chord-bar">Bar {i + 1}</span>
               <b>{c}</b>
-              <small>{isMinor(c) ? 'minor, sad' : 'major, bright'}</small>
+              <span className="chord-mood">
+                <Icon name={isMinor(c) ? 'sad' : 'happy'} size={20} /> {isMinor(c) ? 'minor, sad' : 'major, bright'}
+              </span>
             </div>
           ))}
         </div>
-        <p className="info">The bass automatically plays the lowest note of each chord, in time with your kick drum.</p>
+        <p className="info">
+          <Icon name="bulb" size={20} /> The bass automatically plays the lowest note of each chord, in time with your kick drum.
+        </p>
       </div>
 
       <h3 className="sub">Try other chords for this vibe</h3>
-      <div className="options col">
+      <div className="prog-list">
         {options.map((o, i) => (
-          <button key={i} className={`option wide${same(o.chords, p.chords) ? ' picked' : ''}`} onClick={() => p.onChords(o.chords)}>
-            <b className="prog">{o.chords.join('  ·  ')}</b>
-            <span>{o.why}</span>
-            {o.from && <span className="pill">From {o.from}</span>}
+          <button key={i} className={`prog-card${same(o.chords, p.chords) ? ' picked' : ''}`} onClick={() => p.onChords(o.chords)}>
+            <span className="prog-chords">
+              {o.chords.map((c, j) => (
+                <span key={j} className={`mini-chord${isMinor(c) ? ' minor' : ' major'}`}>{c}</span>
+              ))}
+            </span>
+            <span className="prog-why">{o.why}</span>
+            {o.from && (
+              <span className="chip">
+                <Icon name="vinyl" size={18} /> From {o.from}
+              </span>
+            )}
           </button>
         ))}
       </div>

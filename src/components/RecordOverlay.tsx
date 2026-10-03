@@ -1,4 +1,5 @@
 import { BARS } from '../audio/analysis'
+import { Icon } from './Icon'
 
 type Props = { busy: 'drums' | 'hum' | null; count: string; step: number }
 
@@ -8,15 +9,16 @@ export function RecordOverlay({ busy, count, step }: Props) {
   const live = count.startsWith('rec')
   return (
     <div className="overlay" aria-live="assertive">
-      <div className={`count${live ? ' live' : ''}`}>
+      <div className="overlay-rays" />
+      <div className={`card count${live ? ' live' : ''}`}>
         {live ? (
           <>
-            <span className="dot" />
-            <b>{busy === 'drums' ? 'Beatbox now' : 'Hum now'}</b>
+            <Icon name={busy === 'drums' ? 'kick' : 'mic'} size={84} className="bob" />
+            <b>{busy === 'drums' ? 'Beatbox now!' : 'Hum now!'}</b>
             <small>
-              Bar {count.slice(4)} of {BARS}
+              <span className="dot" /> Recording bar {count.slice(4)} of {BARS}
             </small>
-            <div className="pulse">
+            <div className="pulse-dots">
               {[0, 1, 2, 3].map((i) => (
                 <i key={i} className={step >= 0 && Math.floor(step / 4) % 4 === i ? 'lit' : ''} />
               ))}

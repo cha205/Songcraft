@@ -3,6 +3,8 @@ import { beatboxToHits, emptyDrums, hitsToGrid, humToNotes } from './audio/analy
 import type { Drum, DrumGrid, Note } from './audio/analysis'
 import { ALL, play, playRaw, playSong, record, setBpm, setStepListener, song, stop } from './audio/engine'
 import type { Instrument, Layers, Recording } from './audio/engine'
+import { Icon } from './components/Icon'
+import type { IconName } from './components/Icon'
 import { RecordOverlay } from './components/RecordOverlay'
 import { EXAMPLE_TUNES, TEMPLATES, VIBES, templateGrid } from './data/templates'
 import type { VibeId } from './data/templates'
@@ -16,6 +18,9 @@ import { VibeStep } from './steps/VibeStep'
 import './App.css'
 
 const STEP_NAMES = ['Vibe', 'Beat', 'Chords', 'Tune', 'Words', 'Song']
+const STEP_ICONS: IconName[] = ['sparkle', 'kick', 'keys', 'mic', 'notebook', 'vinyl']
+// Fixed positions so the sparkles don't jump around on every render: [left%, top%, duration s, delay s].
+const SPARKLES = [[8, 20, 6, 0], [22, 70, 7, 1.5], [35, 35, 5, 3], [52, 80, 6.5, 0.8], [64, 18, 7, 2.2], [78, 55, 5.5, 4], [90, 30, 6, 1], [15, 45, 7.5, 3.5], [70, 88, 6, 2.8], [45, 10, 5, 4.4]]
 const NONE: Layers = { drums: false, chords: false, bass: false, melody: false }
 // What you hear on each step: drums alone while learning the beat, then layers stack up.
 const LAYERS_BY_STEP: Layers[] = [NONE, { ...NONE, drums: true }, { drums: true, chords: true, bass: true, melody: false }, ALL, ALL, ALL]
@@ -179,30 +184,41 @@ export default function App() {
   const canGo = (i: number) => i === 0 || !!vibe
 
   return (
-    <div className={`app${vibe ? ` theme-${vibe}` : ''}`}>
-      <header>
-        <div>
-          <h1>Songmaker</h1>
-          <p className="tag">Learn how hit songs are built. Then make your own with your voice.</p>
+    <div className={`app theme-${vibe ?? 'none'}`}>
+      <div className="sky" aria-hidden>
+        <div className="sky-pattern" />
+        <div className="sparkle-field">
+          {SPARKLES.map((sp, i) => (
+            <i key={i} style={{ left: `${sp[0]}%`, top: `${sp[1]}%`, ['--d' as string]: `${sp[2]}s`, ['--delay' as string]: `${sp[3]}s` }} />
+          ))}
         </div>
+      </div>
+
+      <header className="topbar">
+        <button className="logo" onClick={() => goTo(0)} disabled={!!busy}>
+          <Icon name="vinyl" size={40} className={playing || songPlaying ? 'spin' : ''} />
+          <span>
+            <span className="logo-main">Songmaker</span>
+            <span className="logo-sub">learn it, then make it</span>
+          </span>
+        </button>
+        <nav className="stepper" aria-label="Steps">
+          {STEP_NAMES.map((name, i) => (
+            <button key={name} className={`stage${i === stepIdx ? ' current' : ''}${i < stepIdx ? ' done' : ''}`} disabled={!canGo(i) || !!busy} onClick={() => goTo(i)}>
+              <Icon name={STEP_ICONS[i]} size={30} />
+              <span>{name}</span>
+            </button>
+          ))}
+        </nav>
         {vibeObj && template && (
-          <div className="now-making">
-            <span>Making a</span>
-            <b>{vibeObj.name} song</b>
-            <span>{template.bpm} BPM</span>
-          </div>
+          <span className="pill-stat">
+            <Icon name={vibeObj.id} size={32} />
+            {vibeObj.name} · {template.bpm} BPM
+          </span>
         )}
       </header>
 
-      <nav className="stepper" aria-label="Steps">
-        {STEP_NAMES.map((name, i) => (
-          <button key={name} className={`stage${i === stepIdx ? ' current' : ''}${i < stepIdx ? ' done' : ''}`} disabled={!canGo(i) || !!busy} onClick={() => goTo(i)}>
-            <span className="stage-num">{i + 1}</span>
-            {name}
-          </button>
-        ))}
-      </nav>
-
+      <main className="page">
       {stepIdx === 0 && <VibeStep vibe={vibe} onPick={pickVibe} />}
 
       {stepIdx === 1 && vibe && template && (
@@ -280,16 +296,18 @@ export default function App() {
 
       {stepIdx > 0 && (
         <div className="nav">
-          <button className="btn" disabled={!!busy} onClick={() => goTo(stepIdx - 1)}>
+          <button className="btn white lg" disabled={!!busy} onClick={() => goTo(stepIdx - 1)}>
             Back
           </button>
           {stepIdx < STEP_NAMES.length - 1 && (
-            <button className="btn primary" disabled={!!busy} onClick={() => goTo(stepIdx + 1)}>
+            <button className="btn yellow lg" disabled={!!busy} onClick={() => goTo(stepIdx + 1)}>
               Next: {STEP_NAMES[stepIdx + 1]}
+              <Icon name={STEP_ICONS[stepIdx + 1]} size={30} />
             </button>
           )}
         </div>
       )}
+      </main>
 
       <RecordOverlay busy={busy} count={count} step={playStep} />
     </div>

@@ -17,3 +17,6 @@ Thumbs.db
 .idea
 
 .vercel
+
+tools/raw/
+__pycache__/
