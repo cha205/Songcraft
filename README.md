@@ -13,7 +13,8 @@ npm run dev
 - Tone.js (instruments, timing, playback)
 - pitchy (pitch detection, McLeod method)
 - Salamander Grand Piano samples by Alexander Holm (CC BY 3.0), loaded from the Tone.js sample CDN
-- Nunito font (Google Fonts)
+- M PLUS Rounded 1c font (Google Fonts)
+- Art and icons generated with Google Vertex AI (gemini-3-pro-image), scripts in `tools/`
 - Claude Code (AI coding assistant)
 
 
