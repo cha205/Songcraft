@@ -4,9 +4,12 @@ import type { Note } from '../audio/analysis'
 // Rows: the C major notes from C6 down to C4.
 const ROWS = [84, 83, 81, 79, 77, 76, 74, 72, 71, 69, 67, 65, 64, 62, 60]
 
-type Props = { notes: Note[]; step: number; onChange?: (notes: Note[]) => void }
+type Props = { notes: Note[]; step: number; onChange?: (notes: Note[]) => void; fit?: boolean }
 
-export function PianoRoll({ notes, step, onChange }: Props) {
+export function PianoRoll({ notes, step, onChange, fit }: Props) {
+  // Read-only views only show the rows the melody uses (plus one either side), so the grid stays short.
+  const used = ROWS.map((m, i) => (notes.some((n) => n.midi === m) ? i : -1)).filter((i) => i >= 0)
+  const rows = fit && used.length ? ROWS.slice(Math.max(0, Math.min(...used) - 1), Math.max(...used) + 2) : ROWS
   const noteAt = (midi: number, s: number) => notes.find((n) => n.midi === midi && s >= n.start && s < n.start + n.len)
   const click = (midi: number, s: number) => {
     if (!onChange) return
@@ -17,7 +20,7 @@ export function PianoRoll({ notes, step, onChange }: Props) {
   return (
     <div className="grid-wrap">
       <div className="grid roll">
-        {ROWS.map((midi) => (
+        {rows.map((midi) => (
           <div className={`row${midi % 12 === 0 ? ' c-row' : ''}`} key={midi}>
             <div className="row-label key">
               <b>{noteName(midi)}</b>

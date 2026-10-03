@@ -1,3 +1,4 @@
+import { Coach } from '../components/Guide'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { StepHead } from '../components/StepHead'
@@ -36,81 +37,68 @@ export function SongStep(p: Props) {
   const fileName = `${(p.title || 'my-song').trim().replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.wav`
   return (
     <section className="step">
-      <StepHead n={5} icon="vinyl" title="Your song is ready">
-        Producers often build a full song from a single loop by adding and removing parts. Songmaker arranged your four bars into a
-        complete song structure.
-      </StepHead>
+      <StepHead icon="vinyl" title="Your song is ready" />
 
-      <div className="release">
-        <div className={`cover vibe-${p.vibe.id}${p.songPlaying ? ' playing' : ''}`} style={{ backgroundImage: `url(/assets/scenes/scene_${p.vibe.id}.webp)` }}>
-          <div className="cover-shade" />
-          <span className="cover-brand">
-            <Icon name="vinyl" size={22} /> Songmaker
-          </span>
-          <div className="cover-text">
-            <input className="cover-title" value={p.title} placeholder="Name your song" maxLength={40} onChange={(e) => p.onTitle(e.target.value)} aria-label="Song title" />
-            <span className="cover-meta">
-              {p.vibe.name} · {p.template.bpm} BPM · {p.chords.join(' ')}
-            </span>
-          </div>
-          <div className="cover-disc">
-            <Icon name="vinyl" size={150} />
-          </div>
-        </div>
-
-        <div className="card pad player-card">
-          <span className="card-tab tab-brand">
-            <Icon name="play" /> Playback
-          </span>
-          <div className={`karaoke${line ? ' on' : ''}`}>{line || (p.songPlaying ? ' ' : 'Lyrics appear here during playback.')}</div>
-          <div className="actions center">
-            {p.songPlaying ? (
-              <button className="btn ink xl" onClick={p.onStop}>
-                <Icon name="stop" size={30} /> Stop
-              </button>
-            ) : (
-              <button className="btn brand xl" onClick={p.onPlaySong}>
-                <Icon name="play" size={30} /> {p.wavUrl ? 'Play again' : 'Play song'}
-              </button>
-            )}
-            {p.wavUrl && (
-              <a className="btn sun xl" href={p.wavUrl} download={fileName}>
-                <Icon name="download" size={30} /> Download
-              </a>
-            )}
-          </div>
-          {p.wavUrl && <audio controls src={p.wavUrl} className="player" />}
-          {!p.wavUrl && <p className="fine center-text">Play the song once to create a WAV file you can download.</p>}
-        </div>
-      </div>
-
-      <h2 className="sub">Song structure</h2>
-      <div className="sections">
-        {SECTIONS.map((s, i) => (
-          <div key={i} className={`section${p.section === i ? ' now' : ''}`}>
-            <span className="section-num">{i + 1}</span>
-            <b>{s.name}</b>
-            <div className="layer-icons">
-              {LAYER_ICONS.filter(([k]) => s.layers[k]).map(([k, icon, label]) => (
-                <span key={k} title={label}>
-                  <Icon name={icon} size={26} />
-                </span>
-              ))}
+      <div className="card stage-card">
+        <Coach icon="vinyl">Give your song a name and press play. Songmaker builds a full song from your four bars.</Coach>
+        <div className="release">
+          <div className={`cover${p.songPlaying ? ' playing' : ''}`} style={{ backgroundImage: `url(/assets/scenes/scene_${p.vibe.id}.webp)` }}>
+            <div className="cover-shade" />
+            <div className="cover-disc">
+              <Icon name="vinyl" size={170} />
             </div>
-            <small>{s.why}</small>
+            <div className="cover-text">
+              <input className="cover-title" value={p.title} placeholder="Name your song" maxLength={40} onChange={(e) => p.onTitle(e.target.value)} aria-label="Song title" />
+              <span className="cover-meta">
+                {p.vibe.name} · {p.template.bpm} BPM · Made with Songmaker
+              </span>
+            </div>
           </div>
-        ))}
-      </div>
+          <div className="release-side">
+            <div className={`karaoke${line ? ' on' : ''}`}>{line || (p.songPlaying ? ' ' : 'Your lyrics appear here while the song plays.')}</div>
+            <div className="big-actions col">
+              {p.songPlaying ? (
+                <button className="btn navy xl" onClick={p.onStop}>
+                  <Icon name="stop" size={32} /> Stop
+                </button>
+              ) : (
+                <button className="btn green xl" onClick={p.onPlaySong}>
+                  <Icon name="play" size={32} /> {p.wavUrl ? 'Play again' : 'Play my song'}
+                </button>
+              )}
+              {p.wavUrl ? (
+                <a className="btn yellow xl" href={p.wavUrl} download={fileName}>
+                  <Icon name="download" size={32} /> Download
+                </a>
+              ) : (
+                <p className="fine center">Play the song once to save it as a file.</p>
+              )}
+            </div>
+          </div>
+        </div>
 
-      <div className="card pad recap">
-        <span className="card-tab tab-sun">
-          <Icon name="trophy" /> Summary
-        </span>
-        <div className="recap-grid">
+        <span className="mini-label">How your song is built</span>
+        <div className="sections">
+          {SECTIONS.map((s, i) => (
+            <div key={i} className={`section${p.section === i ? ' now' : ''}`}>
+              <b>{s.name}</b>
+              <div className="layer-icons">
+                {LAYER_ICONS.filter(([k]) => s.layers[k]).map(([k, icon, label]) => (
+                  <span key={k} title={label}>
+                    <Icon name={icon} size={26} />
+                  </span>
+                ))}
+              </div>
+              <small>{s.why}</small>
+            </div>
+          ))}
+        </div>
+
+        <div className="recap">
           <div className="recap-item">
             <Icon name="kick" size={40} />
             <b>Drums</b>
-            <span>{p.usedMine.beat ? 'Your recording' : 'Original pattern'}, based on {p.template.ref ? p.template.ref.title : p.template.name}</span>
+            <span>{p.usedMine.beat ? 'Your beatbox' : 'Original beat'}, from {p.template.ref ? p.template.ref.title : p.template.name}</span>
           </div>
           <div className="recap-item">
             <Icon name="keys" size={40} />
@@ -120,7 +108,7 @@ export function SongStep(p: Props) {
           <div className="recap-item">
             <Icon name="mic" size={40} />
             <b>Melody</b>
-            <span>{p.usedMine.tune ? 'Your recording' : 'Example melody'}</span>
+            <span>{p.usedMine.tune ? 'Hummed by you' : 'Example melody'}</span>
           </div>
           <div className="recap-item">
             <Icon name="notebook" size={40} />
@@ -128,9 +116,11 @@ export function SongStep(p: Props) {
             <span>{p.lyrics.filter(Boolean).length ? `${p.lyrics.filter(Boolean).length} of 4 lines` : 'None'}</span>
           </div>
         </div>
-        <button className="btn white" onClick={p.onRestart}>
-          <Icon name="sparkle" size={24} /> Start a new song
-        </button>
+        <div className="stage-foot end">
+          <button className="btn white" onClick={p.onRestart}>
+            <Icon name="sparkle" size={24} /> Make another song
+          </button>
+        </div>
       </div>
     </section>
   )
