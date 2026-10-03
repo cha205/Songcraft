@@ -25,24 +25,24 @@ export function ChordsStep(p: Props) {
   const same = (a: string[], b: string[]) => a.join() === b.join()
   return (
     <section className="step">
-      <StepHead n={2} icon="keys" title="The chords">
-        A chord is three notes played together. It sets the mood under everything else, and each box lasts one bar of your beat.
-        <b> Major chords</b> sound bright. <b>Minor chords</b> (the ones with an m) sound sad or serious.
+      <StepHead n={2} icon="keys" title="Choose the chords">
+        A chord is a group of notes played together, and it sets the emotional tone of the song. Each chord below lasts one bar.
+        Major chords sound bright. Minor chords, marked with an m, sound darker.
       </StepHead>
 
-      <div className="card pad" style={{ ['--tab' as string]: 'var(--purple)', ['--tab-d' as string]: 'var(--purple-d)' }}>
-        <span className="card-tab">
-          <Icon name="keys" /> Your chords
+      <div className="card pad">
+        <span className="card-tab tab-violet">
+          <Icon name="keys" /> Chords
         </span>
         <div className="card-head">
-          <span className="card-title">{p.chords.join(' - ')}</span>
+          <span className="card-title">{p.chords.join(' · ')}</span>
           {p.playing ? (
-            <button className="btn navy" onClick={p.onStop}>
+            <button className="btn ink" onClick={p.onStop}>
               <Icon name="stop" size={24} /> Stop
             </button>
           ) : (
-            <button className="btn green" onClick={p.onPlay}>
-              <Icon name="play" size={24} /> Play with my beat
+            <button className="btn mint" onClick={p.onPlay}>
+              <Icon name="play" size={24} /> Play with drums
             </button>
           )}
         </div>
@@ -51,18 +51,17 @@ export function ChordsStep(p: Props) {
             <div key={i} className={`chord${isMinor(c) ? ' minor' : ' major'}${bar === i ? ' now' : ''}`}>
               <span className="chord-bar">Bar {i + 1}</span>
               <b>{c}</b>
-              <span className="chord-mood">
-                <Icon name={isMinor(c) ? 'sad' : 'happy'} size={20} /> {isMinor(c) ? 'minor, sad' : 'major, bright'}
-              </span>
+              <span className="chord-mood">{isMinor(c) ? 'Minor, darker' : 'Major, bright'}</span>
             </div>
           ))}
         </div>
         <p className="info">
-          <Icon name="bulb" size={20} /> The bass automatically plays the lowest note of each chord, in time with your kick drum.
+          <Icon name="bulb" size={20} /> Songmaker adds the bass for you. It plays the root note of each chord in time with the kick
+          drum.
         </p>
       </div>
 
-      <h3 className="sub">Try other chords for this vibe</h3>
+      <h2 className="sub">Other progressions for this mood</h2>
       <div className="prog-list">
         {options.map((o, i) => (
           <button key={i} className={`prog-card${same(o.chords, p.chords) ? ' picked' : ''}`} onClick={() => p.onChords(o.chords)}>

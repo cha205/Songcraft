@@ -21,29 +21,29 @@ export function LyricsStep(p: Props) {
   const bar = p.playing && p.step >= 0 ? Math.floor(p.step / 16) : -1
   return (
     <section className="step">
-      <StepHead n={4} icon="notebook" title="The words">
-        Lyrics come last because they have to fit the tune. The trick: <b>one syllable per note</b>. Each line is one bar of your
-        tune, and the counter tells you if the words fit.
+      <StepHead n={4} icon="notebook" title="Write the lyrics">
+        Lyrics usually come last because they need to fit the melody. Aim for one syllable per note. Each line below matches one bar,
+        and the counter shows how well your words fit.
       </StepHead>
-      <div className="card pad" style={{ ['--tab' as string]: 'var(--orange)', ['--tab-d' as string]: 'var(--orange-d)' }}>
-        <span className="card-tab">
-          <Icon name="notebook" /> Your lyrics
+      <div className="card pad">
+        <span className="card-tab tab-sun">
+          <Icon name="notebook" /> Lyrics
         </span>
         <div className="card-head">
           <div className="prompts">
             <Icon name="bulb" size={24} />
-            <span>Stuck? Write about</span>
+            <span>Ideas</span>
             {LYRIC_PROMPTS[p.vibe].map((t) => (
               <span key={t} className="chip">{t}</span>
             ))}
           </div>
           {p.playing ? (
-            <button className="btn navy" onClick={p.onStop}>
+            <button className="btn ink" onClick={p.onStop}>
               <Icon name="stop" size={24} /> Stop
             </button>
           ) : (
-            <button className="btn green" onClick={p.onPlay}>
-              <Icon name="play" size={24} /> Play while I write
+            <button className="btn mint" onClick={p.onPlay}>
+              <Icon name="play" size={24} /> Play while writing
             </button>
           )}
         </div>
@@ -58,10 +58,10 @@ export function LyricsStep(p: Props) {
                 <input
                   className="input"
                   value={p.lyrics[b] ?? ''}
-                  placeholder={target ? `${target} notes, so about ${target} syllables` : 'No notes in this bar, leave it empty'}
+                  placeholder={target ? `${target} notes, about ${target} syllables` : 'No notes in this bar'}
                   onChange={(e) => p.onLyrics(p.lyrics.map((l, i) => (i === b ? e.target.value : l)))}
                 />
-                <span className={`syl${fit}`}>
+                <span className={`syl${fit}`} title="Syllables / notes">
                   {have}/{target}
                 </span>
               </label>

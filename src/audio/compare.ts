@@ -53,19 +53,22 @@ export function compareBeats(target: DrumGrid, mine: DrumGrid): BeatCompare {
   return { score: denom ? Math.round((100 * credit) / denom) : 0, rows, marks }
 }
 
-/** Plain-language tips, most useful first. */
+export const DRUM_NAME: Record<Drum, string> = { kick: 'kick', snare: 'snare', hat: 'hi-hat' }
+
+/** Feedback on a take, most useful first. */
 export function beatTips(c: BeatCompare): string[] {
   const tips: string[] = []
   for (const d of DRUMS) {
     const r = c.rows[d]
-    if (r.total === 0 && r.extra > 0) tips.push(`This beat has no ${SAY[d]} at all. Try leaving it out.`)
-    else if (r.total > 0 && r.hit + r.near === 0) tips.push(`No ${SAY[d]} was heard. Try a louder, sharper ${SAY[d]}.`)
-    else if (r.missed > r.total / 2) tips.push(`You missed most of the ${SAY[d]}s. Look at where they sit and count along.`)
-    else if (r.near > r.hit) tips.push(`Your ${SAY[d]}s are close but slightly off the beat. Lock in with the count.`)
-    else if (r.extra > r.total / 2 && r.total > 0) tips.push(`A few extra ${SAY[d]}s crept in. Less is more.`)
+    const name = DRUM_NAME[d]
+    if (r.total === 0 && r.extra > 0) tips.push(`This pattern has no ${name}. Try leaving it out.`)
+    else if (r.total > 0 && r.hit + r.near === 0) tips.push(`No ${name} detected. Try a louder, sharper "${SAY[d]}".`)
+    else if (r.missed > r.total / 2) tips.push(`You missed most of the ${name} hits. Check where they fall in the pattern.`)
+    else if (r.near > r.hit) tips.push(`Your ${name} hits are close but slightly off the beat.`)
+    else if (r.extra > r.total / 2 && r.total > 0) tips.push(`There are a few extra ${name} hits. Try playing fewer.`)
   }
-  if (c.score >= 85) tips.unshift('That is basically the real beat. Nice.')
-  else if (c.score >= 60) tips.unshift('Close! The groove is there.')
+  if (c.score >= 85) tips.unshift('Excellent. Your take matches the original pattern.')
+  else if (c.score >= 60) tips.unshift('Close. The groove is there.')
   return tips.slice(0, 3)
 }
 

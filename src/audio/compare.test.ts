@@ -13,7 +13,7 @@ describe('compareBeats', () => {
   it('scores silence 0 and says nothing was heard', () => {
     const c = compareBeats(target, emptyDrums())
     expect(c.score).toBe(0)
-    expect(beatTips(c).join(' ')).toMatch(/No BOOM/)
+    expect(beatTips(c).join(' ')).toMatch(/No kick detected/)
   })
 
   it('gives half credit for hits one step late', () => {

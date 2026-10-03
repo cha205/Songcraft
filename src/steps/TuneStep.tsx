@@ -35,16 +35,16 @@ const INSTRUMENTS: { id: Instrument; label: string }[] = [
 export function TuneStep(p: Props) {
   return (
     <section className="step">
-      <StepHead n={3} icon="mic" title="The tune">
-        The tune (melody) is the part people hum in the shower. {EXAMPLE_TUNES[p.vibe].tip} Hum yours over the beat and chords and we
-        turn it into notes: snapped to the beat, and moved into the right key so it can never sound off.
+      <StepHead n={3} icon="mic" title="Record the melody">
+        The melody is the part of a song you hum along to. {EXAMPLE_TUNES[p.vibe].tip} Hum your own over the drums and chords, and
+        Songmaker converts your voice into notes that stay on the beat and in key.
       </StepHead>
-      <div className="card pad" style={{ ['--tab' as string]: 'var(--pink)', ['--tab-d' as string]: 'var(--pink-d)' }}>
-        <span className="card-tab">
-          <Icon name={p.choice === 'mine' ? 'mic' : 'clef'} /> {p.choice === 'mine' ? 'Your tune' : 'Example tune'}
+      <div className="card pad">
+        <span className="card-tab tab-pink">
+          <Icon name={p.choice === 'mine' ? 'mic' : 'clef'} /> {p.choice === 'mine' ? 'Your melody' : 'Example melody'}
         </span>
         <div className="card-head">
-          <div className="seg">
+          <div className="seg" role="group" aria-label="Instrument">
             {INSTRUMENTS.map((i) => (
               <button key={i.id} className={p.instrument === i.id ? 'on' : ''} onClick={() => p.onInstrument(i.id)}>
                 {i.label}
@@ -53,36 +53,36 @@ export function TuneStep(p: Props) {
           </div>
           <div className="actions">
             {p.playing ? (
-              <button className="btn navy" onClick={p.onStop}>
+              <button className="btn ink" onClick={p.onStop}>
                 <Icon name="stop" size={24} /> Stop
               </button>
             ) : (
-              <button className="btn green" disabled={p.busy} onClick={p.onPlay}>
-                <Icon name="play" size={24} /> Play everything
+              <button className="btn mint" disabled={p.busy} onClick={p.onPlay}>
+                <Icon name="play" size={24} /> Play
               </button>
             )}
-            <button className="btn red" disabled={p.busy} onClick={p.onRecord}>
-              <Icon name="record" size={24} /> {p.busy ? 'Recording...' : p.hasMine ? 'Hum again' : 'Record hum'}
+            <button className="btn brand" disabled={p.busy} onClick={p.onRecord}>
+              <Icon name="record" size={24} /> {p.busy ? 'Recording' : p.hasMine ? 'Record again' : 'Record'}
             </button>
             {p.hasRaw && (
               <button className="btn white" disabled={p.busy} onClick={p.onRaw}>
-                <Icon name="wave" size={24} /> My raw take
+                <Icon name="wave" size={24} /> Play my recording
               </button>
             )}
           </div>
         </div>
-        <p className="info">{p.info || 'Hum or sing "doo doo doo" for 4 bars after the count-in. Headphones help a lot.'}</p>
+        <p className="info">{p.info || 'After the count-in, hum or sing "doo" for four bars. Headphones give the best results.'}</p>
         {p.hasMine && (
           <div className="choose">
-            <span>Use in my song:</span>
+            <span>Use in song</span>
             <div className="seg">
-              <button className={p.choice === 'mine' ? 'on' : ''} onClick={() => p.onChoice('mine')}>My tune</button>
-              <button className={p.choice === 'example' ? 'on' : ''} onClick={() => p.onChoice('example')}>The example</button>
+              <button className={p.choice === 'mine' ? 'on' : ''} onClick={() => p.onChoice('mine')}>My melody</button>
+              <button className={p.choice === 'example' ? 'on' : ''} onClick={() => p.onChoice('example')}>Example</button>
             </div>
           </div>
         )}
         <PianoRoll notes={p.notes} step={p.playing ? p.step : -1} onChange={p.onEdit} />
-        <p className="fine">Click the grid to add or remove notes. Each column is a 16th of a bar; the gaps are bar lines.</p>
+        <p className="fine">Select a cell to add or remove a note. Each column is a sixteenth note, and the gaps mark the bar lines.</p>
       </div>
     </section>
   )

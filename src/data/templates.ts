@@ -11,46 +11,30 @@ export const VIBES: Vibe[] = [
   {
     id: 'sad',
     name: 'Sad',
-    tagline: 'Heartbreak, missing someone',
-    bpmText: '60-85 BPM',
-    facts: [
-      'Slow: about 60 to 85 beats per minute.',
-      'Built on minor chords, which sound darker.',
-      'The drums leave lots of space, or hold back until the end.',
-    ],
+    tagline: 'Heartbreak and late nights',
+    bpmText: '60 to 85 BPM',
+    facts: ['Slow and spacious.', 'Minor chords give it a darker tone.', 'The drums stay sparse, or enter late.'],
   },
   {
     id: 'chill',
     name: 'Chill',
-    tagline: 'Late night, lazy Sunday',
-    bpmText: '75-95 BPM',
-    facts: [
-      'Medium-slow and relaxed.',
-      'Soft drums with a laid-back, slightly late feel.',
-      'Gentle chords that drift instead of pushing.',
-    ],
+    tagline: 'Slow mornings and sunsets',
+    bpmText: '75 to 95 BPM',
+    facts: ['Relaxed and steady.', 'Soft drums sit slightly behind the beat.', 'Gentle chords drift rather than push.'],
   },
   {
     id: 'happy',
     name: 'Happy',
-    tagline: 'Dancing, summer, good news',
-    bpmText: '100-130 BPM',
-    facts: [
-      'Fast enough to dance to.',
-      'Major chords, which sound bright.',
-      'The snare lands on 2 and 4, right where you clap.',
-    ],
+    tagline: 'Summer, dancing, good news',
+    bpmText: '100 to 130 BPM',
+    facts: ['Fast enough to dance to.', 'Major chords give it a bright tone.', 'The snare lands on beats 2 and 4.'],
   },
   {
     id: 'hype',
-    name: 'Hype',
-    tagline: 'Gym, big game, main character',
-    bpmText: '80-95 BPM, hits hard',
-    facts: [
-      'Not always fast, but every hit is heavy.',
-      'Big kicks and claps you can stomp to.',
-      'Short ideas that repeat and build energy.',
-    ],
+    name: 'Energetic',
+    tagline: 'Game day and big moments',
+    bpmText: '80 to 95 BPM',
+    facts: ['Every hit lands hard.', 'Strong kicks and claps drive it.', 'Short phrases repeat and build.'],
   },
 ]
 
@@ -74,17 +58,17 @@ export const TEMPLATES: Template[] = [
   {
     id: 'sad-ballad',
     vibe: 'sad',
-    name: 'Slow-burn ballad',
+    name: 'Slow ballad',
     bpm: 70,
     ref: { title: 'Fix You', artist: 'Coldplay', bpmText: '70 BPM', signature: false },
     pattern: { kick: [0, 10], snare: [8], hat: QUARTERS },
     chords: ['C', 'Em', 'Am', 'G'],
-    chordsWhy: 'The chord shape Fix You is built on, moved to the key of C (I - iii - vi - V).',
+    chordsWhy: 'The chord progression from Fix You, moved to the key of C (I, iii, vi, V).',
     tips: [
-      'Count slowly: 1... 2... 3... 4. A soft TSS on every count.',
-      'BOOM on 1, then a late BOOM just after 3.',
-      'Only one PFF per bar, on 3. That half-speed snare is what makes it feel heavy.',
-      'In Fix You the drums wait until near the end. Holding the beat back is a classic sad-song move.',
+      'Count slowly: 1, 2, 3, 4. Play a soft hi-hat on every count.',
+      'Play the kick on 1, then again just after 3.',
+      'Play the snare once per bar, on 3. This half-time feel makes the beat sound heavier.',
+      'In Fix You, the drums only enter near the end. Holding back the drums is a common technique in sad songs.',
     ],
   },
   {
@@ -95,11 +79,11 @@ export const TEMPLATES: Template[] = [
     ref: { title: 'Stay With Me', artist: 'Sam Smith', bpmText: '84 BPM', signature: false },
     pattern: { kick: [0, 7, 8], snare: [4, 12], hat: QUARTERS },
     chords: ['Am', 'F', 'C', 'C'],
-    chordsWhy: 'The three chords Stay With Me leans on: Am - F - C. Starting on a minor chord makes it ache.',
+    chordsWhy: 'The three chords Stay With Me is built on: Am, F, and C. Starting on a minor chord gives it a sad tone.',
     tips: [
-      'PFF on 2 and 4, like a choir clapping in church.',
-      'BOOM on 1, then two quick BOOMs around 3.',
-      'Keep it slow and heavy. Every hit should feel like a footstep.',
+      'Play the snare on 2 and 4, like a choir clapping.',
+      'Play the kick on 1, then twice around 3.',
+      'Keep it slow. Each hit should land like a footstep.',
     ],
   },
   {
@@ -110,40 +94,40 @@ export const TEMPLATES: Template[] = [
     ref: { title: 'Sunflower', artist: 'Post Malone, Swae Lee', bpmText: '90 BPM', signature: false },
     pattern: { kick: [0, 7, 10], snare: [4, 12], hat: EIGHTHS },
     chords: ['F', 'Em', 'Dm', 'C'],
-    chordsWhy: 'The chords step down one at a time. It feels like sinking into a couch.',
+    chordsWhy: 'Each chord steps down from the one before, which gives a relaxed, settling feel.',
     tips: [
-      'TSS twice per count, nice and even.',
-      'PFF on 2 and 4.',
-      'The BOOM after 2 lands a little early. That off-beat kick gives it the bounce.',
+      'Play the hi-hat twice per count, evenly.',
+      'Play the snare on 2 and 4.',
+      'The kick after beat 2 lands slightly early. That off-beat kick gives the groove its bounce.',
     ],
   },
   {
     id: 'chill-lofi',
     vibe: 'chill',
-    name: 'Lo-fi study beat',
+    name: 'Lo-fi beat',
     bpm: 80,
     ref: null,
     pattern: { kick: [0, 10, 11], snare: [4, 12], hat: [...EIGHTHS, 15] },
     chords: ['Dm', 'G', 'C', 'Am'],
-    chordsWhy: 'A jazzy loop (ii - V - I - vi). Lo-fi producers use it constantly.',
+    chordsWhy: 'A jazz progression (ii, V, I, vi) that lo-fi producers use often.',
     tips: [
-      'This is the classic "boom bap" beat: BOOM ... PFF ... BOOM BOOM ... PFF.',
-      'Keep your TSS soft. Lo-fi drums sound tired on purpose.',
+      'This is the classic boom bap pattern: kick, snare, two kicks, snare.',
+      'Keep the hi-hat quiet. Lo-fi drums are meant to sound soft and worn.',
     ],
   },
   {
     id: 'happy-pop',
     vibe: 'happy',
-    name: 'The Billie Jean beat',
+    name: 'Billie Jean beat',
     bpm: 117,
     ref: { title: 'Billie Jean', artist: 'Michael Jackson', bpmText: '117 BPM', signature: true },
     pattern: { kick: [0, 8], snare: [4, 12], hat: EIGHTHS },
     chords: ['C', 'G', 'Am', 'F'],
-    chordsWhy: 'The four chords behind hundreds of pop hits (I - V - vi - IV).',
+    chordsWhy: 'The four chords behind many pop hits (I, V, vi, IV).',
     tips: [
-      'The simplest beat in pop: BOOM on 1 and 3, PFF on 2 and 4.',
-      'TSS twice per count, steady like a clock.',
-      'Say it as one loop: BOOM-tss-PFF-tss-BOOM-tss-PFF-tss.',
+      'This is the most common beat in pop: kick on 1 and 3, snare on 2 and 4.',
+      'Play the hi-hat twice per count, steady like a clock.',
+      'Try it as one loop: boom, tss, pff, tss, boom, tss, pff, tss.',
     ],
   },
   {
@@ -154,40 +138,40 @@ export const TEMPLATES: Template[] = [
     ref: { title: "Stayin' Alive", artist: 'Bee Gees', bpmText: '104 BPM', signature: true },
     pattern: { kick: QUARTERS, snare: [4, 12], hat: [2, 6, 10, 14] },
     chords: ['C', 'Am', 'F', 'G'],
-    chordsWhy: 'The bright "50s progression" (I - vi - IV - V).',
+    chordsWhy: 'The bright 1950s progression (I, vi, IV, V).',
     tips: [
-      'BOOM on every count: 1, 2, 3, 4. That is the "four on the floor".',
-      'PFF on 2 and 4, on top of the BOOM.',
-      'TSS in between the counts, on the "and". Fun fact: this tempo is the speed of CPR chest compressions.',
+      'Play the kick on every count: 1, 2, 3, 4.',
+      'Add the snare on 2 and 4, together with the kick.',
+      'Play the hi-hat between the counts. This tempo is often used to teach the pace of CPR chest compressions.',
     ],
   },
   {
     id: 'hype-stomp',
     vibe: 'hype',
-    name: 'Stomp stomp clap',
+    name: 'Stomp, stomp, clap',
     bpm: 81,
     ref: { title: 'We Will Rock You', artist: 'Queen', bpmText: '81 BPM', signature: true },
     pattern: { kick: [0, 2, 8, 10], snare: [4, 12], hat: [] },
     chords: ['Am', 'Am', 'F', 'G'],
-    chordsWhy: 'Staying on Am for two bars builds tension before F and G push forward.',
+    chordsWhy: 'Holding Am for two bars builds tension before F and G move the song forward.',
     tips: [
-      'BOOM BOOM PFF, rest. BOOM BOOM PFF, rest.',
-      'No hi-hat at all. The empty space is what makes the stomps hit.',
+      'Kick, kick, snare, rest. Repeat.',
+      'Leave out the hi-hat. The silence makes each stomp hit harder.',
     ],
   },
   {
     id: 'hype-hiphop',
     vibe: 'hype',
-    name: 'Head-nod hip-hop',
+    name: 'Hip-hop groove',
     bpm: 86,
     ref: { title: 'Lose Yourself', artist: 'Eminem', bpmText: 'about 86 BPM', signature: false },
     pattern: { kick: [0, 3, 8, 10], snare: [4, 12], hat: EIGHTHS },
     chords: ['Am', 'F', 'G', 'Am'],
-    chordsWhy: 'Minor and serious: it starts and ends on Am, so it never fully relaxes.',
+    chordsWhy: 'Starting and ending on Am keeps the progression serious and unresolved.',
     tips: [
-      'PFF on 2 and 4, hard.',
-      'BOOM on 1, a sneaky BOOM just before 2, then BOOM on 3 and right after.',
-      'Nod your head on every PFF. If you nod, it works.',
+      'Play the snare hard on 2 and 4.',
+      'Play the kick on 1, just before 2, on 3, and just after 3.',
+      'Nod your head on each snare to keep time.',
     ],
   },
 ]
@@ -205,29 +189,29 @@ export function templateGrid(t: Template): DrumGrid {
 
 export const PROGRESSIONS: Record<VibeId, { chords: string[]; why: string }[]> = {
   sad: [
-    { chords: ['Am', 'F', 'C', 'G'], why: 'The "sad four chords": the pop progression, but starting on the minor chord.' },
-    { chords: ['F', 'G', 'Em', 'Am'], why: 'Climbs up, then lands on a sad chord at the end.' },
+    { chords: ['Am', 'F', 'C', 'G'], why: 'The common pop progression, starting on its minor chord instead.' },
+    { chords: ['F', 'G', 'Em', 'Am'], why: 'Rises, then ends on a minor chord.' },
   ],
   chill: [
-    { chords: ['C', 'Am', 'Dm', 'G'], why: 'Smooth and round, loops forever without getting tiring.' },
-    { chords: ['F', 'G', 'C', 'Am'], why: 'Floats between bright and soft.' },
+    { chords: ['C', 'Am', 'Dm', 'G'], why: 'Smooth and even, so it loops without getting tiring.' },
+    { chords: ['F', 'G', 'C', 'Am'], why: 'Moves between bright and soft chords.' },
   ],
   happy: [
-    { chords: ['F', 'G', 'C', 'C'], why: 'Builds up and lands home on C. Feels like a big smile.' },
-    { chords: ['C', 'F', 'G', 'F'], why: 'Rock-and-roll simple. Three bright chords.' },
+    { chords: ['F', 'G', 'C', 'C'], why: 'Builds up and resolves on C, which sounds settled and bright.' },
+    { chords: ['C', 'F', 'G', 'F'], why: 'Three major chords, as in early rock and roll.' },
   ],
   hype: [
-    { chords: ['Am', 'G', 'F', 'G'], why: 'Walks down and back up. Good for chanting over.' },
-    { chords: ['Am', 'Am', 'Am', 'G'], why: 'Almost one chord. Leaves all the room for the beat.' },
+    { chords: ['Am', 'G', 'F', 'G'], why: 'Steps down and back up, which suits a chant.' },
+    { chords: ['Am', 'Am', 'Am', 'G'], why: 'Stays on one chord, which leaves room for the drums.' },
   ],
 }
 
 const n = (rows: number[][]): Note[] => rows.map(([start, len, midi]) => ({ start, len, midi }))
 
-/** Original example tunes, one per vibe. Written for this app. */
+/** Original example melodies, one per mood. Written for this app. */
 export const EXAMPLE_TUNES: Record<VibeId, { notes: Note[]; tip: string }> = {
   sad: {
-    tip: 'Sad tunes move in small steps and end each line on a long note that falls.',
+    tip: 'Sad melodies move in small steps and end each line on a long, falling note.',
     notes: n([
       [0, 2, 67], [2, 2, 67], [4, 2, 64], [6, 2, 62], [8, 6, 60],
       [16, 2, 64], [18, 2, 64], [20, 2, 67], [22, 2, 64], [24, 6, 62],
@@ -236,7 +220,7 @@ export const EXAMPLE_TUNES: Record<VibeId, { notes: Note[]; tip: string }> = {
     ]),
   },
   chill: {
-    tip: 'Chill tunes are relaxed and a little off the beat, almost like talking.',
+    tip: 'Chill melodies are relaxed and sit slightly off the beat, close to speech.',
     notes: n([
       [2, 2, 69], [4, 2, 67], [6, 2, 67], [10, 2, 64], [12, 4, 65],
       [18, 2, 64], [20, 2, 62], [22, 2, 62], [26, 2, 60], [28, 4, 62],
@@ -245,7 +229,7 @@ export const EXAMPLE_TUNES: Record<VibeId, { notes: Note[]; tip: string }> = {
     ]),
   },
   happy: {
-    tip: 'Happy tunes use short, bouncy notes that jump up. Repeat the catchy bit.',
+    tip: 'Happy melodies use short notes that jump upward and repeat a catchy phrase.',
     notes: n([
       [0, 2, 67], [2, 2, 67], [4, 2, 69], [6, 2, 67], [8, 4, 72], [12, 4, 71],
       [16, 2, 69], [18, 2, 69], [20, 2, 71], [22, 2, 69], [24, 4, 67], [28, 4, 64],
@@ -254,7 +238,7 @@ export const EXAMPLE_TUNES: Record<VibeId, { notes: Note[]; tip: string }> = {
     ]),
   },
   hype: {
-    tip: 'Hype tunes are short, punchy and repeated. Repetition is energy.',
+    tip: 'Energetic melodies use short, repeated notes to build momentum.',
     notes: n([
       [0, 2, 69], [4, 2, 69], [6, 2, 72], [8, 4, 69],
       [16, 2, 69], [20, 2, 69], [22, 2, 72], [24, 4, 74],

@@ -37,7 +37,7 @@ export function DrumGrid({ grid, bars, step, marks, onToggle }: Props) {
               <Icon name={ICON[d]} size={bars === 1 ? 30 : 24} />
               <span className="row-name">
                 <b>{NAME[d]}</b>
-                <span>{SAY[d]}</span>
+                <span>say "{SAY[d].toLowerCase()}"</span>
               </span>
             </div>
             {grid[d].slice(0, len).map((on, s) => {

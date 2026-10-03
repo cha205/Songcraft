@@ -30,6 +30,7 @@ type Props = {
 }
 
 const DRUM_ICON: Record<Drum, IconName> = { kick: 'kick', snare: 'snare', hat: 'hihat' }
+const DRUM_TITLE: Record<Drum, string> = { kick: 'Kick drum', snare: 'Snare drum', hat: 'Hi-hat' }
 
 export function BeatStep(p: Props) {
   const target = templateGrid(p.template)
@@ -37,12 +38,12 @@ export function BeatStep(p: Props) {
   const tips = result ? beatTips(result) : []
   const options = TEMPLATES.filter((t) => t.vibe === p.vibe)
   const ref = p.template.ref
-  const speed = p.template.bpm < 90 ? 'Slow: about one step per beat.' : p.template.bpm < 110 ? 'Medium: a relaxed walk.' : 'Fast: a brisk walk or a dance.'
+  const speed = p.template.bpm < 90 ? 'Slow tempo, about one step per beat.' : p.template.bpm < 110 ? 'Medium tempo, like a relaxed walk.' : 'Fast tempo, like a brisk walk.'
   return (
     <section className="step">
-      <StepHead n={1} icon="kick" title="The beat">
-        Producers usually start with drums. Pick a beat from a famous song, study how it is built, then make it yourself with your
-        mouth.
+      <StepHead n={1} icon="kick" title="Build the beat">
+        Most producers start with the drums. Study the pattern from a well-known song, then recreate it by beatboxing. Songmaker
+        detects each sound and replaces it with a real drum.
       </StepHead>
 
       <div className="options">
@@ -51,7 +52,7 @@ export function BeatStep(p: Props) {
             <Icon name="vinyl" size={44} className={t.id === p.template.id ? 'spin' : ''} />
             <span className="option-text">
               <b>{t.name}</b>
-              <span>{t.ref ? `${t.ref.signature ? 'The beat from' : 'In the style of'} ${t.ref.title}, ${t.ref.artist}` : 'A classic producer pattern'}</span>
+              <span>{t.ref ? `${t.ref.signature ? 'The beat from' : 'In the style of'} ${t.ref.title} by ${t.ref.artist}` : 'A classic producer pattern'}</span>
             </span>
             <span className="chip">{t.bpm} BPM</span>
           </button>
@@ -59,44 +60,40 @@ export function BeatStep(p: Props) {
       </div>
 
       <div className="study">
-        <div className="card pad" style={{ ['--tab' as string]: 'var(--blue)', ['--tab-d' as string]: 'var(--blue-d)' }}>
-          <span className="card-tab">
-            <Icon name="headphones" /> Study it
+        <div className="card pad">
+          <span className="card-tab tab-sky">
+            <Icon name="headphones" /> Learn
           </span>
           <div className="card-head">
             <span className="card-title">{p.template.name}</span>
             <div className="actions">
               {p.playing && p.choice === 'template' ? (
-                <button className="btn navy" onClick={p.onStop}>
+                <button className="btn ink" onClick={p.onStop}>
                   <Icon name="stop" size={24} /> Stop
                 </button>
               ) : (
-                <button className="btn green" disabled={p.busy} onClick={() => { p.onChoice('template'); p.onPlay() }}>
-                  <Icon name="play" size={24} /> Play the beat
+                <button className="btn mint" disabled={p.busy} onClick={() => { p.onChoice('template'); p.onPlay() }}>
+                  <Icon name="play" size={24} /> Play pattern
                 </button>
               )}
               {ref && (
                 <a className="btn white" href={youtubeSearch(ref.title, ref.artist)} target="_blank" rel="noreferrer">
-                  Hear the real song
+                  Listen to the original
                 </a>
               )}
             </div>
           </div>
-          <div className="skews">
-            <div className="skew" style={{ ['--c' as string]: 'var(--accent)' }}>
-              <div className="skew-in">
-                <Icon name="metronome" size={34} />
-                <span className="skew-value">{p.template.bpm}</span>
-                <span className="skew-label">BPM</span>
-              </div>
+          <div className="stat-tiles">
+            <div className="stat-tile tile-brand">
+              <Icon name="metronome" size={34} />
+              <b>{p.template.bpm}</b>
+              <span>BPM</span>
             </div>
             {DRUMS.map((d) => (
-              <div className="skew" key={d} style={{ ['--c' as string]: `var(--${d})` }}>
-                <div className="skew-in">
-                  <Icon name={DRUM_ICON[d]} size={34} />
-                  <span className="skew-value sm">{SAY[d]}</span>
-                  <span className="skew-label">on {countWords(p.template.pattern[d])}</span>
-                </div>
+              <div className={`stat-tile tile-${d}`} key={d}>
+                <Icon name={DRUM_ICON[d]} size={34} />
+                <b className="sm">{DRUM_TITLE[d]}</b>
+                <span>On {countWords(p.template.pattern[d])}</span>
               </div>
             ))}
           </div>
@@ -111,51 +108,53 @@ export function BeatStep(p: Props) {
               </li>
             ))}
           </ul>
-          {ref && <p className="fine">Tempo from published sources. Drum pattern simplified for learning.</p>}
+          {ref && <p className="fine">Tempo from published sources. The drum pattern is simplified for learning.</p>}
         </div>
 
-        <div className="card pad" style={{ ['--tab' as string]: 'var(--red)', ['--tab-d' as string]: 'var(--red-d)' }}>
-          <span className="card-tab">
-            <Icon name="mic" /> Your turn
+        <div className="card pad">
+          <span className="card-tab tab-brand">
+            <Icon name="mic" /> Record
           </span>
           <div className="card-head">
-            <span className="card-title">Beatbox it</span>
+            <span className="card-title">Beatbox the pattern</span>
             <div className="actions">
-              <button className="btn red" disabled={p.busy} onClick={p.onRecord}>
-                <Icon name="record" size={24} /> {p.busy ? 'Recording...' : p.myDrums ? 'Try again' : 'Record'}
+              <button className="btn brand" disabled={p.busy} onClick={p.onRecord}>
+                <Icon name="record" size={24} /> {p.busy ? 'Recording' : p.myDrums ? 'Record again' : 'Record'}
               </button>
               {p.hasRaw && (
                 <button className="btn white" disabled={p.busy} onClick={p.onRaw}>
-                  <Icon name="wave" size={24} /> My raw take
+                  <Icon name="wave" size={24} /> Play my recording
                 </button>
               )}
             </div>
           </div>
           <p className="info">
-            {p.info || `After 4 clicks, beatbox the beat for 4 bars at ${p.template.bpm} BPM. Watch the dots to stay on time.`}
+            {p.info || `After a four-beat count-in, beatbox the pattern for four bars at ${p.template.bpm} BPM.`}
           </p>
           <label className="check">
             <input type="checkbox" checked={p.click} onChange={(e) => p.onClick(e.target.checked)} />
-            <Icon name="metronome" size={20} /> Keep the metronome on while recording (use headphones)
+            Play the metronome while recording (use headphones)
           </label>
           {!result && (
-            <div className="say-row">
-              {DRUMS.map((d) => (
-                <div key={d} className={`say say-${d}`}>
-                  <Icon name={DRUM_ICON[d]} size={52} />
-                  <b>{SAY[d]}</b>
-                  <span>{d === 'kick' ? 'kick drum' : d === 'snare' ? 'snare drum' : 'hi-hat'}</span>
-                </div>
-              ))}
-            </div>
+            <>
+              <p className="say-intro">Use these three sounds:</p>
+              <div className="say-row">
+                {DRUMS.map((d) => (
+                  <div key={d} className={`say say-${d}`}>
+                    <Icon name={DRUM_ICON[d]} size={52} />
+                    <b>"{SAY[d].toLowerCase()}"</b>
+                    <span>{DRUM_TITLE[d]}</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
           {result && p.myDrums && (
             <>
               <div className="score">
                 <div className={`score-badge${result.score >= 80 ? ' good' : result.score >= 50 ? ' ok' : ''}`}>
-                  <Icon name="trophy" size={40} />
                   <b>{result.score}%</b>
-                  <span>match</span>
+                  <span>Accuracy</span>
                 </div>
                 <ul>
                   {tips.map((t) => (
@@ -164,21 +163,21 @@ export function BeatStep(p: Props) {
                 </ul>
               </div>
               <div className="legend">
-                <span className="lg hit">right on</span>
-                <span className="lg near">a bit off</span>
-                <span className="lg missed">missed</span>
-                <span className="lg extra">extra</span>
+                <span className="lg hit">On beat</span>
+                <span className="lg near">Slightly off</span>
+                <span className="lg missed">Missed</span>
+                <span className="lg extra">Extra</span>
               </div>
               <DrumGrid grid={p.myDrums} bars={4} step={p.choice === 'mine' && p.playing ? p.step : -1} marks={result.marks} />
               <div className="choose">
-                <span>Use in my song:</span>
+                <span>Use in song</span>
                 <div className="seg">
-                  <button className={p.choice === 'mine' ? 'on' : ''} onClick={() => { p.onChoice('mine'); p.onPlay() }}>My beat</button>
-                  <button className={p.choice === 'template' ? 'on' : ''} onClick={() => { p.onChoice('template'); p.onPlay() }}>The template</button>
+                  <button className={p.choice === 'mine' ? 'on' : ''} onClick={() => { p.onChoice('mine'); p.onPlay() }}>My recording</button>
+                  <button className={p.choice === 'template' ? 'on' : ''} onClick={() => { p.onChoice('template'); p.onPlay() }}>Original pattern</button>
                 </div>
               </div>
               <details className="edit">
-                <summary>Fix my beat by hand</summary>
+                <summary>Edit the pattern</summary>
                 <DrumGrid
                   grid={p.myDrums}
                   bars={4}

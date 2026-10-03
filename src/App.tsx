@@ -6,6 +6,7 @@ import type { Instrument, Layers, Recording } from './audio/engine'
 import { Icon } from './components/Icon'
 import type { IconName } from './components/Icon'
 import { RecordOverlay } from './components/RecordOverlay'
+import { TrackPanel } from './components/TrackPanel'
 import { EXAMPLE_TUNES, TEMPLATES, VIBES, templateGrid } from './data/templates'
 import type { VibeId } from './data/templates'
 import { BeatStep } from './steps/BeatStep'
@@ -17,10 +18,8 @@ import { TuneStep } from './steps/TuneStep'
 import { VibeStep } from './steps/VibeStep'
 import './App.css'
 
-const STEP_NAMES = ['Vibe', 'Beat', 'Chords', 'Tune', 'Words', 'Song']
+const STEP_NAMES = ['Mood', 'Drums', 'Chords', 'Melody', 'Lyrics', 'Song']
 const STEP_ICONS: IconName[] = ['sparkle', 'kick', 'keys', 'mic', 'notebook', 'vinyl']
-// Fixed positions so the sparkles don't jump around on every render: [left%, top%, duration s, delay s].
-const SPARKLES = [[8, 20, 6, 0], [22, 70, 7, 1.5], [35, 35, 5, 3], [52, 80, 6.5, 0.8], [64, 18, 7, 2.2], [78, 55, 5.5, 4], [90, 30, 6, 1], [15, 45, 7.5, 3.5], [70, 88, 6, 2.8], [45, 10, 5, 4.4]]
 const NONE: Layers = { drums: false, chords: false, bass: false, melody: false }
 // What you hear on each step: drums alone while learning the beat, then layers stack up.
 const LAYERS_BY_STEP: Layers[] = [NONE, { ...NONE, drums: true }, { drums: true, chords: true, bass: true, melody: false }, ALL, ALL, ALL]
@@ -48,6 +47,7 @@ export default function App() {
   const [section, setSection] = useState(-1)
   const [songPlaying, setSongPlaying] = useState(false)
   const [wavUrl, setWavUrl] = useState<string | null>(null)
+  const [songTitle, setSongTitle] = useState('')
 
   const template = TEMPLATES.find((t) => t.id === templateId) ?? null
   const tplGrid = useMemo(() => (template ? templateGrid(template) : emptyDrums()), [template])
@@ -96,6 +96,7 @@ export default function App() {
       setTuneChoice('example')
       setLyrics(BLANK_LYRICS)
       setWavUrl(null)
+      setSongTitle('')
       setRaw({})
       setDrumInfo('')
       setHumInfo('')
@@ -115,15 +116,15 @@ export default function App() {
       console.table(hits)
       const n = (d: Drum) => hits.filter((h) => h.drum === d).length
       if (!hits.length) {
-        setDrumInfo('Heard nothing. Get closer to the mic and go louder.')
+        setDrumInfo('No sounds detected. Move closer to the microphone and try again.')
       } else {
         setMyDrums(hitsToGrid(hits))
         setDrumChoice('mine')
-        setDrumInfo(`Heard ${hits.length} sounds: ${n('kick')} BOOM, ${n('snare')} PFF, ${n('hat')} TSS. Each one snapped to the nearest 16th note.`)
+        setDrumInfo(`Detected ${hits.length} sounds: ${n('kick')} kick, ${n('snare')} snare, and ${n('hat')} hi-hat. Songmaker aligned each one to the nearest sixteenth note.`)
         await startPlay()
       }
     } catch (e) {
-      setDrumInfo(`Mic problem: ${(e as Error).message}`)
+      setDrumInfo(`Microphone unavailable: ${(e as Error).message}`)
     } finally {
       setBusy(null)
       setCount('')
@@ -140,18 +141,18 @@ export default function App() {
       setRaw((r) => ({ ...r, hum: rec }))
       const res = humToNotes(rec.samples, rec.sampleRate, template.bpm, rec.preroll)
       if (!res.notes.length) {
-        setHumInfo('No tune found. Hum louder; "doo doo" works better than a closed-mouth hum.')
+        setHumInfo('No melody detected. Try singing "doo" instead of humming with your mouth closed.')
       } else {
         setMyNotes(res.notes)
         setTuneChoice('mine')
         setHumInfo(
-          `Found ${res.notes.length} notes. You hummed in about ${res.hummedKey} major` +
-            (res.shift ? '; we moved it into C so it fits the chords.' : ', which already fits the chords.'),
+          `Detected ${res.notes.length} notes in roughly ${res.hummedKey} major. ` +
+            (res.shift ? 'Songmaker moved the melody to C so it matches the chords.' : 'That already matches the chords.'),
         )
         await startPlay()
       }
     } catch (e) {
-      setHumInfo(`Mic problem: ${(e as Error).message}`)
+      setHumInfo(`Microphone unavailable: ${(e as Error).message}`)
     } finally {
       setBusy(null)
       setCount('')
@@ -183,131 +184,147 @@ export default function App() {
   const vibeObj = VIBES.find((v) => v.id === vibe)
   const canGo = (i: number) => i === 0 || !!vibe
 
+  const stepProps = { step: playStep, playing, onPlay: startPlay, onStop: halt }
+
   return (
-    <div className={`app theme-${vibe ?? 'none'}`}>
-      <div className="sky" aria-hidden>
-        <div className="sky-pattern" />
-        <div className="sparkle-field">
-          {SPARKLES.map((sp, i) => (
-            <i key={i} style={{ left: `${sp[0]}%`, top: `${sp[1]}%`, ['--d' as string]: `${sp[2]}s`, ['--delay' as string]: `${sp[3]}s` }} />
-          ))}
-        </div>
+    <div className={`app theme-${vibe ?? 'none'}${stepIdx === 0 ? ' is-landing' : ''}`}>
+      <div className="backdrop" aria-hidden>
+        <i className="blob b1" />
+        <i className="blob b2" />
+        <i className="blob b3" />
+        <div className="staff" />
       </div>
 
       <header className="topbar">
         <button className="logo" onClick={() => goTo(0)} disabled={!!busy}>
-          <Icon name="vinyl" size={40} className={playing || songPlaying ? 'spin' : ''} />
-          <span>
-            <span className="logo-main">Songmaker</span>
-            <span className="logo-sub">learn it, then make it</span>
+          <span className="logo-mark">
+            <Icon name="vinyl" size={34} className={playing || songPlaying ? 'spin' : ''} />
+          </span>
+          <span className="logo-text">
+            <span className="logo-main">songmaker</span>
+            <span className="logo-sub">Make music with your voice</span>
           </span>
         </button>
         <nav className="stepper" aria-label="Steps">
           {STEP_NAMES.map((name, i) => (
-            <button key={name} className={`stage${i === stepIdx ? ' current' : ''}${i < stepIdx ? ' done' : ''}`} disabled={!canGo(i) || !!busy} onClick={() => goTo(i)}>
-              <Icon name={STEP_ICONS[i]} size={30} />
-              <span>{name}</span>
+            <button
+              key={name}
+              className={`stage${i === stepIdx ? ' current' : ''}${i < stepIdx ? ' done' : ''}`}
+              disabled={!canGo(i) || !!busy}
+              onClick={() => goTo(i)}
+              aria-current={i === stepIdx ? 'step' : undefined}
+            >
+              <span className="stage-dot">{i + 1}</span>
+              <span className="stage-name">{name}</span>
             </button>
           ))}
         </nav>
-        {vibeObj && template && (
-          <span className="pill-stat">
-            <Icon name={vibeObj.id} size={32} />
-            {vibeObj.name} · {template.bpm} BPM
-          </span>
-        )}
       </header>
 
-      <main className="page">
-      {stepIdx === 0 && <VibeStep vibe={vibe} onPick={pickVibe} />}
+      <div className={`workspace${stepIdx > 0 ? ' with-panel' : ''}`}>
+        <main className="main">
+          {stepIdx === 0 && <VibeStep vibe={vibe} onPick={pickVibe} />}
 
-      {stepIdx === 1 && vibe && template && (
-        <BeatStep
-          vibe={vibe}
-          template={template}
-          onTemplate={pickTemplate}
-          myDrums={myDrums}
-          onMyDrums={setMyDrums}
-          choice={drumChoice}
-          onChoice={setDrumChoice}
-          step={playStep}
-          playing={playing}
-          onPlay={startPlay}
-          onStop={halt}
-          busy={!!busy}
-          onRecord={recordDrums}
-          info={drumInfo}
-          hasRaw={!!raw.drums}
-          onRaw={() => raw.drums && playRaw(raw.drums.samples)}
-          click={click}
-          onClick={setClick}
-        />
-      )}
-
-      {stepIdx === 2 && vibe && template && (
-        <ChordsStep vibe={vibe} template={template} chords={chords} onChords={setChords} step={playStep} playing={playing} onPlay={startPlay} onStop={halt} />
-      )}
-
-      {stepIdx === 3 && vibe && (
-        <TuneStep
-          vibe={vibe}
-          notes={notes}
-          onEdit={(n) => {
-            setMyNotes(n)
-            setTuneChoice('mine')
-          }}
-          hasMine={!!myNotes}
-          choice={tuneChoice}
-          onChoice={setTuneChoice}
-          instrument={instrument}
-          onInstrument={setInstrument}
-          step={playStep}
-          playing={playing}
-          onPlay={startPlay}
-          onStop={halt}
-          busy={!!busy}
-          onRecord={recordHum}
-          info={humInfo}
-          hasRaw={!!raw.hum}
-          onRaw={() => raw.hum && playRaw(raw.hum.samples)}
-        />
-      )}
-
-      {stepIdx === 4 && vibe && (
-        <LyricsStep vibe={vibe} notes={notes} lyrics={lyrics} onLyrics={setLyrics} step={playStep} playing={playing} onPlay={startPlay} onStop={halt} />
-      )}
-
-      {stepIdx === 5 && vibeObj && template && (
-        <SongStep
-          vibe={vibeObj}
-          template={template}
-          chords={chords}
-          lyrics={lyrics}
-          section={section}
-          step={songPlaying ? playStep : -1}
-          songPlaying={songPlaying}
-          onPlaySong={playWholeSong}
-          onStop={halt}
-          wavUrl={wavUrl}
-          usedMine={{ beat: drumChoice === 'mine' && !!myDrums, tune: tuneChoice === 'mine' && !!myNotes }}
-          onRestart={restart}
-        />
-      )}
-
-      {stepIdx > 0 && (
-        <div className="nav">
-          <button className="btn white lg" disabled={!!busy} onClick={() => goTo(stepIdx - 1)}>
-            Back
-          </button>
-          {stepIdx < STEP_NAMES.length - 1 && (
-            <button className="btn yellow lg" disabled={!!busy} onClick={() => goTo(stepIdx + 1)}>
-              Next: {STEP_NAMES[stepIdx + 1]}
-              <Icon name={STEP_ICONS[stepIdx + 1]} size={30} />
-            </button>
+          {stepIdx === 1 && vibe && template && (
+            <BeatStep
+              vibe={vibe}
+              template={template}
+              onTemplate={pickTemplate}
+              myDrums={myDrums}
+              onMyDrums={setMyDrums}
+              choice={drumChoice}
+              onChoice={setDrumChoice}
+              {...stepProps}
+              busy={!!busy}
+              onRecord={recordDrums}
+              info={drumInfo}
+              hasRaw={!!raw.drums}
+              onRaw={() => raw.drums && playRaw(raw.drums.samples)}
+              click={click}
+              onClick={setClick}
+            />
           )}
-        </div>
-      )}
-      </main>
+
+          {stepIdx === 2 && vibe && template && <ChordsStep vibe={vibe} template={template} chords={chords} onChords={setChords} {...stepProps} />}
+
+          {stepIdx === 3 && vibe && (
+            <TuneStep
+              vibe={vibe}
+              notes={notes}
+              onEdit={(n) => {
+                setMyNotes(n)
+                setTuneChoice('mine')
+              }}
+              hasMine={!!myNotes}
+              choice={tuneChoice}
+              onChoice={setTuneChoice}
+              instrument={instrument}
+              onInstrument={setInstrument}
+              {...stepProps}
+              busy={!!busy}
+              onRecord={recordHum}
+              info={humInfo}
+              hasRaw={!!raw.hum}
+              onRaw={() => raw.hum && playRaw(raw.hum.samples)}
+            />
+          )}
+
+          {stepIdx === 4 && vibe && <LyricsStep vibe={vibe} notes={notes} lyrics={lyrics} onLyrics={setLyrics} {...stepProps} />}
+
+          {stepIdx === 5 && vibeObj && template && (
+            <SongStep
+              vibe={vibeObj}
+              template={template}
+              chords={chords}
+              lyrics={lyrics}
+              title={songTitle}
+              onTitle={setSongTitle}
+              section={section}
+              step={songPlaying ? playStep : -1}
+              songPlaying={songPlaying}
+              onPlaySong={playWholeSong}
+              onStop={halt}
+              wavUrl={wavUrl}
+              usedMine={{ beat: drumChoice === 'mine' && !!myDrums, tune: tuneChoice === 'mine' && !!myNotes }}
+              onRestart={restart}
+            />
+          )}
+
+          {stepIdx > 0 && (
+            <div className="nav">
+              <button className="btn white lg" disabled={!!busy} onClick={() => goTo(stepIdx - 1)}>
+                Back
+              </button>
+              {stepIdx < STEP_NAMES.length - 1 && (
+                <button className="btn violet lg" disabled={!!busy} onClick={() => goTo(stepIdx + 1)}>
+                  Next: {STEP_NAMES[stepIdx + 1]}
+                  <Icon name={STEP_ICONS[stepIdx + 1]} size={28} />
+                </button>
+              )}
+            </div>
+          )}
+        </main>
+
+        {stepIdx > 0 && vibeObj && template && (
+          <TrackPanel
+            vibe={vibeObj}
+            template={template}
+            drums={drums}
+            drumsMine={drumChoice === 'mine' && !!myDrums}
+            chords={chords}
+            notes={notes}
+            melodyMine={tuneChoice === 'mine' && !!myNotes}
+            lyrics={lyrics}
+            stepIdx={stepIdx}
+            playStep={playing || songPlaying ? playStep : -1}
+            onGo={goTo}
+          />
+        )}
+      </div>
+
+      <footer className="foot">
+        Songmaker, built at StormHacks 2026. Tempo and chord details come from published sources. Example melodies are original.
+      </footer>
 
       <RecordOverlay busy={busy} count={count} step={playStep} />
     </div>
