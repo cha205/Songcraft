@@ -9,6 +9,10 @@ npm run dev
 ```
 
 ## Built with
-- Vite, React, TypeScript, oxlint
+- Vite, React, TypeScript, oxlint, Vitest
+- Tone.js (instruments, timing, playback)
+- pitchy (pitch detection, McLeod method)
+- Salamander Grand Piano samples by Alexander Holm (CC BY 3.0), loaded from the Tone.js sample CDN
+- Nunito font (Google Fonts)
 - Claude Code (AI coding assistant)
 
