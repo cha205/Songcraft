@@ -6,6 +6,10 @@ import type { DrumGrid, Note } from './analysis'
 
 export type Instrument = 'piano' | 'synth' | 'bells'
 
+/** Which parts are audible. `double` adds the tune an octave up on bells (used in choruses). */
+export type Layers = { drums: boolean; chords: boolean; bass: boolean; melody: boolean; double?: boolean }
+export const ALL: Layers = { drums: true, chords: true, bass: true, melody: true }
+
 /** The song the sequencer reads on every step. React writes into it; the audio thread never waits on React. */
 export const song: {
   bpm: number
@@ -13,7 +17,14 @@ export const song: {
   notes: Note[]
   chords: string[] | null
   instrument: Instrument
-} = { bpm: 90, drums: emptyDrums(), notes: [], chords: null, instrument: 'piano' }
+  layers: Layers
+} = { bpm: 90, drums: emptyDrums(), notes: [], chords: null, instrument: 'piano', layers: ALL }
+
+// Full-song mode: one Layers entry per 4-bar section.
+let arrangement: Layers[] | null = null
+let section = -1
+let onSection: (i: number) => void = () => {}
+let songDone: (() => void) | null = null
 
 type Mode = 'play' | 'rec-drums' | 'rec-hum'
 let mode: Mode = 'play'
@@ -27,6 +38,8 @@ let seq: Tone.Sequence<number> | null = null
 const freq = (midi: number) => Tone.Frequency(midi, 'midi').toFrequency()
 
 function build() {
+  // Keep the mix from clipping when drums, chords, bass and two melody layers all hit at once.
+  Tone.getDestination().chain(new Tone.Limiter(-1))
   const reverb = new Tone.Reverb({ decay: 2.5, wet: 0.25 }).toDestination()
   const kick = new Tone.MembraneSynth({
     pitchDecay: 0.05,
@@ -82,7 +95,20 @@ function tick(time: number, step: number) {
   const { drums, notes, chords, instrument, bpm } = song
   const hasDrums = drums.kick.some(Boolean) || drums.snare.some(Boolean) || drums.hat.some(Boolean)
 
-  if (mode !== 'rec-drums') {
+  if (arrangement && step === 0) {
+    section++
+    if (section >= arrangement.length) {
+      Tone.getTransport().stop(time)
+      const done = songDone
+      setTimeout(() => done?.(), Math.max(0, (time - Tone.getContext().currentTime) * 1000))
+      return
+    }
+    const i = section
+    Tone.getDraw().schedule(() => onSection(i), time)
+  }
+  const L = mode === 'play' ? (arrangement ? arrangement[section] : song.layers) : null
+
+  if (mode === 'rec-hum' || L?.drums) {
     if (drums.kick[step]) inst.kick.triggerAttackRelease('C1', '8n', time)
     if (drums.snare[step]) inst.snare.triggerAttackRelease('16n', time)
     if (drums.hat[step]) inst.hat.triggerAttackRelease('32n', time)
@@ -90,15 +116,23 @@ function tick(time: number, step: number) {
   const wantClick = mode !== 'play' && (clickWhileRecording || (mode === 'rec-hum' && !hasDrums))
   if (wantClick && step % 4 === 0) inst.click.triggerAttackRelease('32n', time)
 
-  if (mode === 'play') {
+  if (L?.melody) {
     // The piano samples stream in from a CDN; use the synth until they arrive.
     const lead = instrument === 'piano' && inst.piano.loaded ? inst.piano : instrument === 'bells' ? inst.bells : inst.synth
     for (const n of notes) {
-      if (n.start === step) lead.triggerAttackRelease(freq(n.midi), n.len * stepSeconds(bpm) * 0.95, time)
+      if (n.start !== step) continue
+      const dur = n.len * stepSeconds(bpm) * 0.95
+      lead.triggerAttackRelease(freq(n.midi), dur, time)
+      if (L.double) inst.bells.triggerAttackRelease(freq(n.midi + 12), dur, time, 0.35)
     }
-    if (chords) {
-      const chord = chords[Math.floor(step / 16)]
-      if (step % 16 === 0) inst.pad.triggerAttackRelease(chordMidis(chord).map(freq), '1m', time)
+  }
+  if (chords) {
+    const chord = chords[Math.floor(step / 16)]
+    // While humming, the chords play quietly so they guide the voice without leaking into the mic much.
+    if (step % 16 === 0 && (mode === 'rec-hum' || L?.chords)) {
+      inst.pad.triggerAttackRelease(chordMidis(chord).map(freq), '1m', time, mode === 'rec-hum' ? 0.4 : 1)
+    }
+    if (L?.bass) {
       const bar = Math.floor(step / 16) * 16
       const barHasKick = drums.kick.slice(bar, bar + 16).some(Boolean)
       if (barHasKick ? drums.kick[step] : step % 8 === 0) inst.bass.triggerAttackRelease(freq(bassMidi(chord)), '8n', time)
@@ -129,12 +163,101 @@ export async function play() {
   t.stop()
   t.position = 0
   mode = 'play'
+  arrangement = null
   t.start('+0.05')
 }
 
 export function stop() {
   Tone.getTransport().stop()
+  arrangement = null
+  songDone?.()
   onStep(-1)
+}
+
+/**
+ * Play the whole arranged song once while capturing the speakers' signal. Resolves with a WAV file, or null if
+ * stopped early. `sectionCb` gets each section index as it starts, and -1 at the end.
+ */
+export async function playSong(sections: Layers[], sectionCb: (i: number) => void): Promise<Blob | null> {
+  await ensure()
+  await ensureWorklet()
+  stop()
+  // Tap the master output with the same worklet approach as the mic: raw samples, no codec, no MediaRecorder.
+  const ctx = Tone.getContext()
+  const tap = ctx.createAudioWorkletNode('songmaker-tap', { channelCount: 2, channelCountMode: 'explicit' })
+  const sink = ctx.createGain()
+  sink.gain.value = 0
+  const left: Float32Array[] = []
+  const right: Float32Array[] = []
+  tap.port.onmessage = (e: MessageEvent<[Float32Array, Float32Array]>) => {
+    left.push(e.data[0])
+    right.push(e.data[1])
+  }
+  Tone.getDestination().connect(tap)
+  tap.connect(sink)
+  sink.connect(ctx.rawContext.destination)
+
+  arrangement = sections
+  section = -1
+  onSection = sectionCb
+  mode = 'play'
+  return new Promise((resolve) => {
+    songDone = async () => {
+      const finished = arrangement !== null
+      songDone = null
+      arrangement = null
+      onStep(-1)
+      // Let the reverb ring out before cutting the file.
+      if (finished) await new Promise((r) => setTimeout(r, 2500))
+      Tone.getDestination().disconnect(tap)
+      tap.disconnect()
+      sink.disconnect()
+      sectionCb(-1)
+      resolve(finished ? encodeWav([join(left), join(right)], ctx.sampleRate) : null)
+    }
+    const t = Tone.getTransport()
+    t.position = 0
+    t.start('+0.1')
+  })
+}
+
+function join(parts: Float32Array[]) {
+  const out = new Float32Array(parts.reduce((n, p) => n + p.length, 0))
+  let o = 0
+  for (const p of parts) {
+    out.set(p, o)
+    o += p.length
+  }
+  return out
+}
+
+function encodeWav(data: Float32Array[], sampleRate: number): Blob {
+  const ch = data.length
+  const len = data[0].length
+  const out = new DataView(new ArrayBuffer(44 + len * ch * 2))
+  const str = (o: number, x: string) => [...x].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)))
+  str(0, 'RIFF')
+  out.setUint32(4, 36 + len * ch * 2, true)
+  str(8, 'WAVE')
+  str(12, 'fmt ')
+  out.setUint32(16, 16, true)
+  out.setUint16(20, 1, true)
+  out.setUint16(22, ch, true)
+  out.setUint32(24, sampleRate, true)
+  out.setUint32(28, sampleRate * ch * 2, true)
+  out.setUint16(32, ch * 2, true)
+  out.setUint16(34, 16, true)
+  str(36, 'data')
+  out.setUint32(40, len * ch * 2, true)
+  let o = 44
+  for (let i = 0; i < len; i++) {
+    for (let c = 0; c < ch; c++) {
+      const v = Math.max(-1, Math.min(1, data[c][i]))
+      out.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true)
+      o += 2
+    }
+  }
+  return new Blob([out], { type: 'audio/wav' })
 }
 
 let rawPlayer: Tone.Player | null = null
@@ -153,8 +276,21 @@ const WORKLET = `class SongmakerRec extends AudioWorkletProcessor {
     return true
   }
 }
-registerProcessor('songmaker-rec', SongmakerRec)`
+registerProcessor('songmaker-rec', SongmakerRec)
+class SongmakerTap extends AudioWorkletProcessor {
+  process(inputs) {
+    const i = inputs[0]
+    if (i && i.length) this.port.postMessage([i[0].slice(0), (i[1] || i[0]).slice(0)])
+    return true
+  }
+}
+registerProcessor('songmaker-tap', SongmakerTap)`
 let workletReady = false
+async function ensureWorklet() {
+  if (workletReady) return
+  await Tone.getContext().addAudioWorkletModule(URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' })))
+  workletReady = true
+}
 
 export type Recording = { samples: Float32Array; sampleRate: number; preroll: number }
 
@@ -169,10 +305,7 @@ export async function record(
   await ensure()
   stop()
   const ctx = Tone.getContext()
-  if (!workletReady) {
-    await ctx.addAudioWorkletModule(URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' })))
-    workletReady = true
-  }
+  await ensureWorklet()
   const stream = await navigator.mediaDevices.getUserMedia({
     // Noise suppression treats a steady hum as noise and deletes it, so it stays off.
     audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },

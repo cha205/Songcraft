@@ -1,6 +1,6 @@
 # Songmaker
 
-Hum it, get a song. A browser app that turns beatboxing and humming into a finished song, for people who have never made music.
+Learn how hit songs are built, then make your own with your voice. Pick a vibe, study the beat and chords of a famous song in that vibe, beatbox and hum your own version, add lyrics, and export a finished song. For people who have never made music.
 
 ## Run locally
 ```
@@ -16,3 +16,8 @@ npm run dev
 - Nunito font (Google Fonts)
 - Claude Code (AI coding assistant)
 
+
+## Reference songs
+Templates use only tempo, simplified drum patterns and chord progressions of these songs (no audio, melody or lyrics):
+Fix You (Coldplay), Stay With Me (Sam Smith), Sunflower (Post Malone, Swae Lee), Billie Jean (Michael Jackson),
+Stayin' Alive (Bee Gees), We Will Rock You (Queen), Lose Yourself (Eminem). Example tunes are original.
