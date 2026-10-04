@@ -90,3 +90,32 @@ export function melodyFromChords(chords: string[], chorus: boolean): Note[] {
   })
   return out
 }
+
+/**
+ * Clean up a hummed melody so it sounds intentional: one-step glitches merge into the note before, every note lasts at
+ * least an eighth, and a note on a beat that is a step away from the chord is pulled onto the chord.
+ */
+export function polishMelody(notes: Note[], chords: string[]): Note[] {
+  const out: Note[] = []
+  for (const n of [...notes].sort((a, b) => a.start - b.start)) {
+    const last = out[out.length - 1]
+    if (n.len < 2 && last && last.start + last.len >= n.start - 1) {
+      last.len = Math.max(last.len, n.start + n.len - last.start)
+      continue
+    }
+    out.push({ ...n, len: Math.max(2, n.len) })
+  }
+  for (const n of out) {
+    if (n.start % 4 !== 0) continue
+    const tones = chordMidis(chords[Math.min(3, Math.floor(n.start / 16))] ?? 'C').map(pc)
+    if (tones.includes(pc(n.midi))) continue
+    const near = [n.midi - 1, n.midi + 1, n.midi - 2, n.midi + 2].find((m) => tones.includes(pc(m)) && MELODY_NOTES.includes(m))
+    if (near) n.midi = near
+  }
+  out.forEach((n, i) => {
+    const next = out[i + 1]
+    if (next && n.start + n.len > next.start) n.len = Math.max(1, next.start - n.start)
+    if (n.start + n.len > STEPS) n.len = STEPS - n.start
+  })
+  return out
+}

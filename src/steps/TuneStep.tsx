@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Note } from '../audio/analysis'
 import { previewNote } from '../audio/engine'
 import type { MelodyTips } from '../ai'
-import { Coach, GeminiCoach, MicButton, StageTabs } from '../components/Guide'
+import { Coach, GeminiCoach, StageTabs } from '../components/Guide'
 import { Icon } from '../components/Icon'
 import { PianoRoll } from '../components/PianoRoll'
 import { StepHead } from '../components/StepHead'
@@ -29,6 +29,8 @@ type Props = {
   busy: boolean
   onRecord: () => Promise<boolean>
   onUpload: (file: File) => Promise<boolean>
+  onFreeHum: () => Promise<boolean>
+  humLive: boolean
   onCoach: () => Promise<{ good: string; tip: string; model: string }>
   onTips: () => Promise<MelodyTips>
   info: string
@@ -263,11 +265,25 @@ export function TuneStep(p: Props) {
         {stage === 'hum' && (
           <>
             <Coach icon="mic">
-              Press the microphone, wait for four clicks, and hum along to your beat for four bars. Or drop a recording of your hum anywhere on this page: any length,
-              Songcraft fits it to your beat.
+              Tap the microphone and hum your tune for a few seconds, then tap it again. Songcraft fits it to your beat and keeps it in key. You can also drop a recording
+              of your hum anywhere on this page.
             </Coach>
             <div className="record-layout">
-              <MicButton busy={p.busy} onClick={record} label="Press to record" />
+              <button
+                className={`mic-button${p.humLive ? ' busy live' : ''}`}
+                onClick={async () => {
+                  if (await p.onFreeHum()) setStage('tune')
+                }}
+                disabled={p.busy}
+                aria-label={p.humLive ? 'Stop humming' : 'Start humming'}
+              >
+                <span className="mic-ring r1" />
+                <span className="mic-ring r2" />
+                <span className="mic-core">
+                  <Icon name={p.humLive ? 'stop' : 'mic'} size={74} />
+                </span>
+                <span className="mic-label">{p.humLive ? 'Listening. Tap to finish' : 'Tap to hum'}</span>
+              </button>
               <div className="record-side">
                 <span className="mini-label">Tips for a clean take</span>
                 <ul className="tips">
@@ -278,9 +294,12 @@ export function TuneStep(p: Props) {
                     <Icon name="note" size={24} /> Sing "doo" or "la" rather than humming with your mouth closed.
                   </li>
                   <li>
-                    <Icon name="metronome" size={24} /> Your beat and chords play while you record. Follow them.
+                    <Icon name="metronome" size={24} /> Any speed is fine: Songcraft stretches it to fit your beat.
                   </li>
                 </ul>
+                <button className="link-btn" onClick={record} disabled={p.busy || p.humLive}>
+                  Or hum along to your beat for four bars, with a count-in
+                </button>
               </div>
             </div>
             <label className={`upload-hum${dragging ? ' over' : ''}`}>
@@ -342,6 +361,9 @@ export function TuneStep(p: Props) {
             {instrumentPicker}
             <div className="stage-foot">
               <div className="actions">
+                <button className="btn red" onClick={() => go('hum')}>
+                  <Icon name="mic" size={24} /> Hum again
+                </button>
                 <button className="btn white" onClick={() => go('build')}>
                   Back to building
                 </button>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cursorOf, melodyFromChords, nextNotes } from './melody'
+import { cursorOf, melodyFromChords, nextNotes, polishMelody } from './melody'
 
 const CHORDS = ['C', 'G', 'Am', 'F']
 
@@ -24,5 +24,13 @@ describe('melody suggestions', () => {
     const m = melodyFromChords(CHORDS, false)
     expect(cursorOf(m)).toBe(64)
     expect(m.every((n) => n.midi >= 62 && n.midi <= 81)).toBe(true)
+  })
+
+  it('cleans up a hummed melody', () => {
+    const hum = [{ start: 0, len: 4, midi: 65 }, { start: 4, len: 1, midi: 67 }, { start: 8, len: 4, midi: 64 }]
+    const out = polishMelody(hum, ['C', 'G', 'Am', 'F'])
+    expect(out).toHaveLength(2)
+    expect(out[0].midi).toBe(64)
+    expect(out.every((n) => n.len >= 2)).toBe(true)
   })
 })

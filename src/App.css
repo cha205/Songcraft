@@ -893,3 +893,7 @@ img.icon.spin { animation: spin 2.4s linear infinite; }
 
 .upload-hum.over { border-color: var(--mood); background: var(--mood-soft); transform: scale(1.01); }
 .upload-hum { transition: transform 0.15s, background 0.15s; }
+
+.mic-button.live .mic-core { background: linear-gradient(180deg, #ff8fb1, #ff4f86 60%); }
+.mic-button.live { cursor: pointer; }
+.record-side .link-btn { margin-top: 10px; text-align: left; }

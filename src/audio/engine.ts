@@ -285,7 +285,7 @@ function tick(time: number, step: number) {
     vocal.player.start(time, vocal.offset)
   }
 
-  if (voiceRec || L?.drums) {
+  if (mode === 'rec-sing' || L?.drums) {
     if (song.fill && step >= 60 && mode === 'play') {
       // A fill at the end of the loop: four quick snares lead into the next section.
       if (step === 60) hitDrum('kick', time)
@@ -296,7 +296,7 @@ function tick(time: number, step: number) {
       if (grid.hat[step]) hitDrum('hat', time, step % 4 === 0 ? 1 : 0.7)
     }
   }
-  const wantClick = mode !== 'play' && (clickWhileRecording || (voiceRec && !hasDrums))
+  const wantClick = mode !== 'play' && (clickWhileRecording || mode === 'rec-hum' || (voiceRec && !hasDrums))
   if (wantClick && step % 4 === 0) inst.click.triggerAttackRelease('32n', time)
 
   if (L?.melody || mode === 'rec-sing') {
@@ -312,7 +312,7 @@ function tick(time: number, step: number) {
   if (chords) {
     const chord = chords[Math.floor(step / 16)]
     // While humming, the chords play quietly so they guide the voice without leaking into the mic much.
-    if (voiceRec) {
+    if (mode === 'rec-sing') {
       if (step % 16 === 0) inst.pad.triggerAttackRelease(chordMidis(chord).map(freq), '1m', time, 0.4)
     } else if (L?.chords) {
       // Several chord instruments can play together; each steps back a little so the chord does not get muddy.
@@ -524,7 +524,7 @@ export async function record(
   const stream = await navigator.mediaDevices.getUserMedia({
     // Noise suppression treats a steady hum as noise and deletes it, so it stays off. Echo cancellation is made for
     // phone calls and makes a singing voice thin, so it is off for singing (the app asks for headphones).
-    audio: { echoCancellation: kind !== 'sing', noiseSuppression: false, autoGainControl: false },
+    audio: { echoCancellation: kind === 'drums', noiseSuppression: false, autoGainControl: kind === 'hum' },
   })
   const src = ctx.createMediaStreamSource(stream)
   const node = ctx.createAudioWorkletNode('songmaker-rec')
@@ -587,11 +587,12 @@ export type Listening = { stop: () => Promise<{ samples: Float32Array; sampleRat
  * Record the microphone freely (no count-in, no beat) so the user can talk to Gemini. Any music keeps playing,
  * turned down so the request is easy to hear. `level()` is the latest loudness, 0 to 1, for a voice meter.
  */
-export async function startListening(): Promise<Listening> {
+export async function startListening(opts: { hum?: boolean } = {}): Promise<Listening> {
   await Tone.start()
   await ensureWorklet()
   const ctx = Tone.getContext()
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+  const audio = opts.hum ? { echoCancellation: false, noiseSuppression: false, autoGainControl: true } : { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio })
   const src = ctx.createMediaStreamSource(stream)
   const node = ctx.createAudioWorkletNode('songmaker-rec')
   const sink = ctx.createGain()

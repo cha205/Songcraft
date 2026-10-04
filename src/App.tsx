@@ -3,6 +3,7 @@ import { humToNotes } from './audio/analysis'
 import type { DrumGrid, Note } from './audio/analysis'
 import { autotune } from './audio/autotune'
 import { fitHum } from './audio/fitHum'
+import { polishMelody } from './data/melody'
 import { cleanVocal } from './audio/vocal'
 import { countWords } from './audio/compare'
 import { ALL, duck, play, playRaw, playSong, preload, record, setBpm, setMix, setStepListener, setSwing, setVocal, song, startListening, stop } from './audio/engine'
@@ -151,6 +152,9 @@ export default function App() {
   const micTimer = useRef(0)
   const undos = useRef(new Map<number, Snapshot>())
   const msgId = useRef(0)
+  const humMic = useRef<Listening | null>(null)
+  const humTimer = useRef(0)
+  const [humLive, setHumLive] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [sharedView, setSharedView] = useState(false)
 
@@ -381,7 +385,7 @@ export default function App() {
         setHumInfo('No melody detected. Try singing "doo" instead of humming with your mouth closed.')
         return false
       }
-      updatePart({ myNotes: res.notes, tuneChoice: 'mine' })
+      updatePart({ myNotes: polishMelody(res.notes, cur.chords), tuneChoice: 'mine' })
       setHumInfo(
         `Songcraft found ${res.notes.length} notes. ` +
           (res.shift ? `You sang in roughly ${res.hummedKey} major, so it moved the melody to C to match your chords.` : 'Your melody already matches the chords.'),
@@ -397,7 +401,52 @@ export default function App() {
     }
   }
 
-  /** Turn an uploaded recording of someone humming into the melody. Leading silence is skipped so it starts on bar 1. */
+  /** Fit a free hum (recorded here or uploaded) to the beat, polish it and make it the melody. */
+  async function applyHum(samples: Float32Array, sampleRate: number, from: 'recording' | 'file'): Promise<boolean> {
+    setRaw((r) => ({ ...r, hum: { samples, sampleRate, preroll: 0 } }))
+    // A hum recorded on its own is not in time with the beat, so it is fitted: stretched to whole bars, snapped, repeated.
+    const res = fitHum(samples, sampleRate, bpm)
+    if (!res.notes.length) {
+      setHumInfo(`No melody found in that ${from}. Hum a clear "doo doo" close to the microphone and try again.`)
+      return false
+    }
+    updatePart({ myNotes: polishMelody(res.notes, cur.chords), tuneChoice: 'mine' })
+    setHumInfo(
+      `Songcraft fitted your ${res.seconds.toFixed(1)}-second hum to ${res.bars === 1 ? 'one bar' : `${res.bars} bars`} of your beat` +
+        (res.bars < 4 ? ' and repeated it to fill the loop. ' : '. ') +
+        (res.shift ? `You sang in roughly ${res.hummedKey} major, so it moved the melody to C to match your chords.` : 'Your melody already matches the chords.'),
+    )
+    await startPlay()
+    return true
+  }
+
+  /** Tap to start humming, tap again to stop. No count-in and no music, so nothing leaks into the microphone. */
+  async function freeHum(): Promise<boolean> {
+    const live = humMic.current
+    if (live) {
+      humMic.current = null
+      clearTimeout(humTimer.current)
+      setHumLive(false)
+      const rec = await live.stop()
+      if (rec.samples.length < rec.sampleRate * 1) {
+        setHumInfo('That was very short. Tap the microphone, hum for a few seconds, then tap it again.')
+        return false
+      }
+      return applyHum(rec.samples, rec.sampleRate, 'recording')
+    }
+    halt()
+    setHumInfo('')
+    try {
+      humMic.current = await startListening({ hum: true })
+      setHumLive(true)
+      humTimer.current = window.setTimeout(() => void freeHum(), 15000)
+    } catch (e) {
+      setHumInfo(`Microphone unavailable: ${(e as Error).message}`)
+    }
+    return false
+  }
+
+  /** Turn an uploaded recording of someone humming into the melody. */
   async function uploadHum(file: File): Promise<boolean> {
     halt()
     setHumInfo('')
@@ -409,21 +458,7 @@ export default function App() {
         const d = buf.getChannelData(c)
         for (let i = 0; i < d.length; i++) mono[i] += d[i] / buf.numberOfChannels
       }
-      setRaw((r) => ({ ...r, hum: { samples: mono, sampleRate: buf.sampleRate, preroll: 0 } }))
-      // A hum recorded on its own is not in time with the beat, so it is fitted: stretched to whole bars, snapped, repeated.
-      const res = fitHum(mono, buf.sampleRate, bpm)
-      if (!res.notes.length) {
-        setHumInfo('No melody found in that file. A clear "doo doo" hum with little background noise works best.')
-        return false
-      }
-      updatePart({ myNotes: res.notes, tuneChoice: 'mine' })
-      setHumInfo(
-        `Songcraft fitted your ${res.seconds.toFixed(1)}-second hum to ${res.bars === 1 ? 'one bar' : `${res.bars} bars`} of your beat` +
-          (res.bars < 4 ? ' and repeated it to fill the loop. ' : '. ') +
-          (res.shift ? `You sang in roughly ${res.hummedKey} major, so it moved the melody to C to match your chords.` : 'Your melody already matches the chords.'),
-      )
-      await startPlay()
-      return true
+      return await applyHum(mono, buf.sampleRate, 'file')
     } catch (e) {
       setHumInfo(`That file could not be read (${(e as Error).message}). Try an mp3, wav or m4a.`)
       return false
@@ -893,6 +928,8 @@ export default function App() {
             busy={!!busy}
             onRecord={recordHum}
             onUpload={uploadHum}
+            onFreeHum={freeHum}
+            humLive={humLive}
             onCoach={() => coach('melody')}
             onTips={() => melodyTips({ notes: curNotes, chords: cur.chords, genre: genre.name, feeling, part: editing, bpm })}
             info={humInfo}
