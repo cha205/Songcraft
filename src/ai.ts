@@ -21,7 +21,8 @@ export type Blueprint = {
 }
 
 export type PlanSet = { plans: Blueprint[]; model: string }
-export type LyricDraft = { lines: string[]; tip: string; model: string }
+/** Gemini's help for the lines the user wrote: feedback, rhyme words and word ideas. It never writes lines. */
+export type LyricHelp = { lines: { feedback: string; rhymes: string[]; ideas: string[] }[]; tip: string; model: string }
 export type Coaching = { good: string; tip: string; model: string }
 
 /** Settings the producer may change. Every value is already checked by the server. */
@@ -54,8 +55,8 @@ async function ask<T>(task: 'blueprint' | 'lyrics' | 'coach' | 'producer' | 'cov
 
 export const planSong = (text: string) => ask<PlanSet>('blueprint', { text })
 
-export const writeLyrics = (payload: { genre: string; feeling: Feeling; topic: string; title: string; syllables: number[]; part: string }) =>
-  ask<LyricDraft>('lyrics', payload)
+export const lyricHelp = (payload: { genre: string; feeling: Feeling; topic: string; title: string; syllables: number[]; part: string; lines: string[] }) =>
+  ask<LyricHelp>('lyrics', payload)
 
 export const coachTake = (payload: { kind: 'beat' | 'melody'; samples: Float32Array; sampleRate: number; bpm: number; genre: string; feeling: Feeling; target: string }) =>
   ask<Coaching>('coach', { kind: payload.kind, bpm: payload.bpm, genre: payload.genre, feeling: payload.feeling, target: payload.target, audio: toWav16k(payload.samples, payload.sampleRate) })

@@ -5,7 +5,7 @@ export const MODELS = ['gemini-3.1-pro-preview', 'gemini-3.6-flash', 'gemini-2.5
 // Album covers: the best image model, with the fast one racing alongside.
 const IMAGE_MODELS = ['gemini-3-pro-image', 'gemini-2.5-flash-image']
 // How long to wait for the best model before accepting the faster model's answer.
-const PREFER_MS = { blueprint: 20000, lyrics: 15000, coach: 25000, cover: 35000 }
+const PREFER_MS = { blueprint: 20000, lyrics: 5000, coach: 25000, cover: 35000 }
 export const TASKS = ['blueprint', 'lyrics', 'coach', 'producer', 'cover']
 
 const GENRES = ['pop', 'hiphop', 'lofi', 'rnb', 'dance', 'rock', 'acoustic', 'latin']
@@ -51,9 +51,20 @@ const BLUEPRINT_SCHEMA = { type: 'OBJECT', properties: { plans: { type: 'ARRAY',
 
 const COACH_SCHEMA = { type: 'OBJECT', properties: { good: str(), tip: str() }, required: ['good', 'tip'] }
 
+// Lyric help: feedback, rhymes and word ideas for the lines the user wrote. Gemini never writes the lines.
 const LYRICS_SCHEMA = {
   type: 'OBJECT',
-  properties: { lines: { type: 'ARRAY', items: str() }, tip: str() },
+  properties: {
+    lines: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: { feedback: str(), rhymes: { type: 'ARRAY', items: str() }, ideas: { type: 'ARRAY', items: str() } },
+        required: ['feedback', 'rhymes', 'ideas'],
+      },
+    },
+    tip: str(),
+  },
   required: ['lines', 'tip'],
 }
 
@@ -98,13 +109,23 @@ Never mention or imitate real songs or artists.
 Description: """${String(text).slice(0, 400)}"""`
 }
 
-function lyricsPrompt({ genre, feeling, topic, syllables, title, part }) {
-  const role = part === 'chorus' ? 'This is the CHORUS: make it the catchiest part and repeat one short phrase (ideally the title).' : 'This is the VERSE: tell the story with concrete details.'
-  return `Write 4 original song lyric lines for a beginner's song, one line per bar. ${role}
-Style: ${genre}. Feeling: ${feeling}. Title: ${title || 'untitled'}. Topic: ${topic || 'free choice'}.
-Line 1 should have about ${syllables[0]} syllables, line 2 about ${syllables[1]}, line 3 about ${syllables[2]}, line 4 about ${syllables[3]} (one syllable per note, plus or minus one).
-Use simple, vivid, singable words that a child could sing. Lines 2 and 4 should rhyme. No profanity. Do not quote or imitate any existing song.
-tip: one short sentence teaching the beginner something about writing lyrics, based on what you wrote.`
+function lyricsPrompt({ genre, feeling, topic, syllables, title, part, lines }) {
+  const role = part === 'chorus' ? 'This is the CHORUS, where one short catchy phrase usually repeats.' : 'This is the VERSE, which tells the story with concrete details.'
+  const theirs = [0, 1, 2, 3]
+    .map((i) => `${i + 1}. ${String(lines?.[i] || '').trim() ? `"${String(lines[i]).slice(0, 120)}"` : '(empty)'} - their melody has about ${syllables?.[i] ?? 6} notes in this bar`)
+    .join('\n')
+  return `You are a kind songwriting teacher helping a beginner, maybe a child, write their OWN lyrics. ${role}
+Style: ${genre}. Feeling: ${feeling}. Title: ${title || 'untitled'}. Topic: ${topic || 'not chosen yet'}.
+Their four lines, one per bar:
+${theirs}
+
+The words must stay theirs. Never write a lyric line for them, never rewrite or complete their lines, and never give a full example line.
+For each of the four lines return:
+- feedback: one short sentence. If the line is empty, ask a question that helps them think of their own line (about the topic, a feeling, or something you can see or hear). If it has clearly more or fewer syllables than notes (one syllable per note, plus or minus one), say so and which word could be cut or stretched. Otherwise praise one specific thing.
+- rhymes: up to 5 single words that rhyme with the last word of this line, so they can end another line with a rhyme. Empty if the line is empty.
+- ideas: only for an empty line, up to 4 single words or two-word images that fit the topic and feeling. Otherwise empty.
+tip: one sentence teaching one songwriting idea (rhyme, repetition in the chorus, concrete images, singable vowels) based on what they wrote.
+Simple words a 10-year-old understands. Never mention, quote or imitate real songs or artists.`
 }
 
 function coachPrompt({ kind, bpm, genre, feeling, target }) {
@@ -151,6 +172,7 @@ Rules:
 - If they only ask a question, answer it and change nothing.
 - reply: describe only the changes you actually put in "changes". One or two short sentences a 10-year-old understands, spoken to them directly and warmly. Say what you changed and the music reason it works, or answer the question. No emoji, no lists.
 - If the audio is silent or you cannot understand it, change nothing and ask them to try again.
+- Never write song lyrics for them. You may suggest a topic, rhyme words or a question that helps them write their own.
 - Never mention or imitate real songs or artists.`
 }
 
@@ -270,8 +292,9 @@ export function readResult(task, response, model) {
     }
   }
   if (task === 'lyrics') {
-    const lines = Array.isArray(r.lines) ? r.lines.slice(0, 4).map(String) : []
-    while (lines.length < 4) lines.push('')
+    const words = (v, n) => (Array.isArray(v) ? v : []).map((x) => String(x).trim()).filter((x) => x && x.split(/\s+/).length <= 2).slice(0, n)
+    const lines = (Array.isArray(r.lines) ? r.lines : []).slice(0, 4).map((l) => ({ feedback: String(l?.feedback || '').slice(0, 240), rhymes: words(l?.rhymes, 5), ideas: words(l?.ideas, 4) }))
+    while (lines.length < 4) lines.push({ feedback: '', rhymes: [], ideas: [] })
     return { lines, tip: String(r.tip || ''), model }
   }
   const plans = (Array.isArray(r.plans) ? r.plans : []).slice(0, 3).map(normalizePlan)

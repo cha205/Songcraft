@@ -5,8 +5,8 @@ import { autotune } from './audio/autotune'
 import { countWords } from './audio/compare'
 import { ALL, duck, play, playRaw, playSong, preload, record, setBpm, setStepListener, setSwing, setVocal, song, startListening, stop } from './audio/engine'
 import type { Layers, Listening, Recording } from './audio/engine'
-import { askProducer, coachTake, makeCover, planSong, writeLyrics } from './ai'
-import type { Blueprint, Coaching, ProducerChanges, ProducerReply } from './ai'
+import { askProducer, coachTake, lyricHelp, makeCover, planSong } from './ai'
+import type { Blueprint, Coaching, LyricHelp, ProducerChanges, ProducerReply } from './ai'
 import { Dock } from './components/Dock'
 import { HowItWorks } from './components/HowItWorks'
 import { Icon } from './components/Icon'
@@ -115,7 +115,7 @@ export default function App() {
   const [aiError, setAiError] = useState('')
   const [lyricBusy, setLyricBusy] = useState(false)
   const [lyricError, setLyricError] = useState('')
-  const [lyricTip, setLyricTip] = useState('')
+  const [help, setHelp] = useState<Record<PartId, LyricHelp | null>>({ verse: null, chorus: null })
   const [playing, setPlaying] = useState(false)
   const [playStep, setPlayStep] = useState(-1)
   const [busy, setBusy] = useState<'drums' | 'hum' | 'sing' | null>(null)
@@ -234,7 +234,6 @@ export default function App() {
     halt()
     setStepIdx(i)
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    if (i === 6 && cover?.key !== coverKey) void paintCover()
   }
 
   /** Load a style's defaults for both core loops. Clears anything made for the previous style. */
@@ -259,7 +258,7 @@ export default function App() {
     setRaw({})
     setDrumInfo('')
     setHumInfo('')
-    setLyricTip('')
+    setHelp({ verse: null, chorus: null })
     clearVocals()
   }
 
@@ -315,15 +314,15 @@ export default function App() {
     goTo(1)
   }
 
-  async function draftLyrics(topicNow = topic) {
+  /** Ask Gemini to look at the lines the user wrote. The words stay theirs; Gemini only gives feedback and ideas. */
+  async function askLyricHelp() {
     if (!genre) return
     setLyricBusy(true)
     setLyricError('')
     try {
       const perBar = [0, 1, 2, 3].map((b) => Math.max(3, curNotes.filter((n) => n.start >= b * 16 && n.start < b * 16 + 16).length))
-      const res = await writeLyrics({ genre: genre.name, feeling, topic: topicNow, title: songTitle, syllables: perBar, part: editing })
-      updatePart({ lyrics: res.lines })
-      setLyricTip(res.tip)
+      const res = await lyricHelp({ genre: genre.name, feeling, topic, title: songTitle, syllables: perBar, part: editing, lines: cur.lyrics })
+      setHelp((h) => ({ ...h, [editing]: res }))
     } catch (e) {
       setLyricError((e as Error).message)
     } finally {
@@ -610,7 +609,6 @@ export default function App() {
       const target = r.goTo ? STEP_NAMES.indexOf(r.goTo) : -1
       if (target > 0 && target !== stepIdx) goTo(target)
       else if (changes.length && stepIdx >= 1 && stepIdx <= 5 && !playing && !songPlaying) void startPlay()
-      if (r.changes.topic && stepIdx === 4) void draftLyrics(r.changes.topic)
     } catch (e) {
       setMsgs((m) => [...m, { id: ++msgId.current, from: 'gemini', text: (e as Error).message, error: true }])
     } finally {
@@ -783,6 +781,7 @@ export default function App() {
             lesson={cur.lesson}
             onLesson={(l) => updatePart({ lesson: l, custom: null })}
             beat={curGrid}
+            custom={cur.custom}
             onCustom={(g) => updatePart({ custom: g })}
             fill={fill}
             onFill={setFill}
@@ -849,10 +848,10 @@ export default function App() {
             onLyrics={(l) => updatePart({ lyrics: l })}
             topic={topic}
             onTopic={setTopic}
-            onWrite={draftLyrics}
+            onHelp={askLyricHelp}
             aiBusy={lyricBusy}
             aiError={lyricError}
-            aiTip={lyricTip}
+            help={help[editing]}
             {...stepProps}
             doneLabel={verseThenChorus ? 'Next: make the chorus' : 'Finish this part'}
             onDone={next}

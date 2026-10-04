@@ -3,11 +3,13 @@ import type { Drum, DrumGrid as Grid } from '../audio/analysis'
 import { DRUMS } from '../audio/analysis'
 import { SAY, beatTips, compareBeats } from '../audio/compare'
 import { BeatClock } from '../components/BeatClock'
+import { FamousBeats } from '../components/FamousBeats'
 import { DrumGrid } from '../components/DrumGrid'
 import { Coach, GeminiCoach, MicButton, StageTabs } from '../components/Guide'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { StepHead } from '../components/StepHead'
+import { FAMOUS_BEATS, SHOW_FAMOUS_BEATS, famousGrid } from '../data/famousBeats'
 import { HATS, KICKS, KITS, SNARES, beatStory, option } from '../data/genres'
 import type { Feeling, Genre, KitId, LayerOption } from '../data/genres'
 
@@ -27,6 +29,7 @@ type Props = {
   lesson: Lesson
   onLesson: (l: Lesson) => void
   beat: Grid
+  custom: Grid | null
   onCustom: (g: Grid | null) => void
   fill: boolean
   onFill: (v: boolean) => void
@@ -60,6 +63,22 @@ const LAYERS: { key: keyof Lesson; title: string; role: string; icon: IconName; 
 export function DrumsStep(p: Props) {
   const [stage, setStage] = useState<Stage>('learn')
   const [take, setTake] = useState<Grid | null>(null)
+  // A famous beat being tried, and the user's own beat, tempo and kit to go back to.
+  const [tried, setTried] = useState<{ id: string; custom: Grid | null; bpm: number; kit: KitId } | null>(null)
+  const tryBeat = (id: string) => {
+    const b = FAMOUS_BEATS.find((x) => x.id === id)
+    if (!b) return
+    setTried({ id, custom: tried ? tried.custom : p.custom, bpm: tried ? tried.bpm : p.bpm, kit: tried ? tried.kit : p.kit })
+    p.onCustom(famousGrid(b))
+    if (!p.playing) p.onPlay()
+  }
+  const backToMine = () => {
+    if (!tried) return
+    p.onCustom(tried.custom)
+    p.onBpm(tried.bpm)
+    p.onKit(tried.kit)
+    setTried(null)
+  }
   const recommended = p.genre.drums[p.feeling]
   const go = (s: Stage) => {
     p.onStop()
@@ -133,6 +152,19 @@ export function DrumsStep(p: Props) {
                 </div>
               </div>
             </div>
+            {SHOW_FAMOUS_BEATS && (
+              <FamousBeats
+                genre={p.genre.id}
+                tried={tried?.id ?? null}
+                bpm={p.bpm}
+                onTry={(b) => tryBeat(b.id)}
+                onTempo={(b) => {
+                  p.onBpm(b.bpm)
+                  p.onKit(b.kit)
+                }}
+                onBack={backToMine}
+              />
+            )}
             <div className="stage-foot">
               <button className="link-btn" onClick={() => go('tune')}>
                 Skip recording and fine-tune

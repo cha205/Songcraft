@@ -6,6 +6,7 @@ import { StepHead } from '../components/StepHead'
 import { LYRIC_PROMPTS } from '../data/genres'
 import type { Feeling } from '../data/genres'
 import { syllables } from '../lyrics'
+import type { LyricHelp } from '../ai'
 
 type Props = {
   part: 'verse' | 'chorus'
@@ -16,10 +17,10 @@ type Props = {
   onLyrics: (l: string[]) => void
   topic: string
   onTopic: (t: string) => void
-  onWrite: () => void
+  onHelp: () => void
   aiBusy: boolean
   aiError: string
-  aiTip: string
+  help: LyricHelp | null
   step: number
   playing: boolean
   onPlay: () => void
@@ -46,19 +47,19 @@ export function LyricsStep(p: Props) {
   return (
     <section className="step">
       <StepHead icon="notebook" title={p.part === 'chorus' ? 'Write the chorus lyrics' : 'Write the verse lyrics'}>
-        Lyrics come last because they have to fit the melody. The rule of thumb is one syllable for each note.
+        Lyrics come last because they have to fit the melody. The rule of thumb is one syllable for each note. Every word is yours.
       </StepHead>
 
       <div className="card stage-card">
         <Coach icon="notebook">
           {p.part === 'chorus'
-            ? 'Chorus lyrics repeat one short, catchy phrase. Write one line per bar, or let Gemini draft them.'
-            : 'Verse lyrics tell the story. Write one short line per bar, or let Gemini draft them. The counter turns green when a line fits.'}
+            ? 'Chorus lyrics repeat one short, catchy phrase. Write one line per bar. Stuck? Gemini gives you rhymes and ideas, never the words.'
+            : 'Verse lyrics tell the story. Write one short line per bar; the counter turns green when it fits. Stuck? Gemini gives you rhymes and ideas, never the words.'}
         </Coach>
         <div className="ai-lyrics">
           <input className="input" value={p.topic} maxLength={80} placeholder="What is your song about?" onChange={(e) => p.onTopic(e.target.value)} aria-label="Song topic" />
-          <button className="btn violet lg" onClick={p.onWrite} disabled={p.aiBusy}>
-            <Icon name="wand" size={26} /> {p.aiBusy ? 'Writing' : 'Write with Gemini'}
+          <button className="btn violet lg" onClick={p.onHelp} disabled={p.aiBusy}>
+            <Icon name="bulb" size={26} /> {p.aiBusy ? 'Reading your lines' : 'Ask Gemini for help'}
           </button>
         </div>
         <div className="prompts">
@@ -76,13 +77,13 @@ export function LyricsStep(p: Props) {
               <i />
               <i />
             </span>
-            Gemini is writing lines that fit your melody.
+            Gemini is reading your lines and checking them against your melody.
           </div>
         )}
         {p.aiError && <p className="notice">{p.aiError}</p>}
-        {p.aiTip && !p.aiBusy && (
+        {p.help?.tip && !p.aiBusy && (
           <p className="note">
-            <Icon name="bulb" size={22} /> {p.aiTip}
+            <Icon name="bulb" size={22} /> {p.help.tip}
           </p>
         )}
         <div className="lyric-lines">
@@ -90,19 +91,43 @@ export function LyricsStep(p: Props) {
             const target = p.notes.filter((n) => n.start >= b * 16 && n.start < b * 16 + 16).length
             const have = syllables(p.lyrics[b] ?? '')
             const fit = !p.lyrics[b] ? '' : Math.abs(have - target) <= 1 ? ' fit' : have > target ? ' long' : ' short'
+            const h = p.help?.lines[b]
             return (
-              <label key={b} className={`lyric${bar === b ? ' now' : ''}`}>
-                <span className="lyric-bar">Bar {b + 1}</span>
-                <input
-                  className="input"
-                  value={p.lyrics[b] ?? ''}
-                  placeholder={target ? `About ${target} syllables` : 'No notes in this bar'}
-                  onChange={(e) => p.onLyrics(p.lyrics.map((l, i) => (i === b ? e.target.value : l)))}
-                />
-                <span className={`syl${fit}`} title="Syllables compared with notes">
-                  {have}/{target}
-                </span>
-              </label>
+              <div key={b} className="lyric-wrap">
+                <label className={`lyric${bar === b ? ' now' : ''}`}>
+                  <span className="lyric-bar">Bar {b + 1}</span>
+                  <input
+                    className="input"
+                    value={p.lyrics[b] ?? ''}
+                    placeholder={target ? `About ${target} syllables` : 'No notes in this bar'}
+                    onChange={(e) => p.onLyrics(p.lyrics.map((l, i) => (i === b ? e.target.value : l)))}
+                  />
+                  <span className={`syl${fit}`} title="Syllables compared with notes">
+                    {have}/{target}
+                  </span>
+                </label>
+                {h && (h.feedback || h.rhymes.length > 0 || h.ideas.length > 0) && (
+                  <div className="lyric-help">
+                    {h.feedback && <p>{h.feedback}</p>}
+                    {h.rhymes.length > 0 && (
+                      <span className="word-row">
+                        <b>Rhymes</b>
+                        {h.rhymes.map((w) => (
+                          <i key={w}>{w}</i>
+                        ))}
+                      </span>
+                    )}
+                    {h.ideas.length > 0 && (
+                      <span className="word-row">
+                        <b>Ideas</b>
+                        {h.ideas.map((w) => (
+                          <i key={w}>{w}</i>
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>
