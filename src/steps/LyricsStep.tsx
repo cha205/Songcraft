@@ -31,7 +31,15 @@ type Props = {
   onRemoveVocal: () => void
   onCoachVocal: () => Promise<{ good: string; tip: string; model: string }>
   singInfo: string
+  tune: 'off' | 'natural' | 'robot'
+  onTune: (t: 'off' | 'natural' | 'robot') => void
 }
+
+const TUNES = [
+  { id: 'off', name: 'Off', why: 'Your voice exactly as you sang it.' },
+  { id: 'natural', name: 'Natural', why: 'Gently pulls each note onto your melody.' },
+  { id: 'robot', name: 'Robot', why: 'Snaps every note into place for that electronic sound.' },
+] as const
 
 export function LyricsStep(p: Props) {
   const bar = p.playing && p.step >= 0 ? Math.floor(p.step / 16) : -1
@@ -121,6 +129,19 @@ export function LyricsStep(p: Props) {
               </button>
             )}
           </div>
+          {p.hasVocal && (
+            <div className="tune-modes">
+              <span className="mini-label">Pitch correction</span>
+              <div className="tune-switch" role="radiogroup" aria-label="Pitch correction">
+                {TUNES.map((t) => (
+                  <button key={t.id} role="radio" aria-checked={p.tune === t.id} className={p.tune === t.id ? 'on' : ''} onClick={() => p.onTune(t.id)}>
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+              <small>{TUNES.find((t) => t.id === p.tune)?.why}</small>
+            </div>
+          )}
           {p.hasVocal && <GeminiCoach key={p.singInfo} onCoach={p.onCoachVocal} />}
         </div>
 

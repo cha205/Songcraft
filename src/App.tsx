@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { beatboxToHits, hitsToGrid, humToNotes } from './audio/analysis'
 import type { Drum, DrumGrid, Note } from './audio/analysis'
+import { autotune } from './audio/autotune'
 import { countWords } from './audio/compare'
 import { ALL, duck, play, playRaw, playSong, preload, record, setBpm, setStepListener, setSwing, setVocal, song, startListening, stop } from './audio/engine'
 import type { Layers, Listening, Recording } from './audio/engine'
@@ -45,6 +46,11 @@ const LAYERS_BY_STEP: Layers[] = [
   ALL,
 ]
 const BLANK_LYRICS = ['', '', '', '']
+
+/** One sung take, kept as recorded plus two pitch-corrected versions. */
+type Vocal = { raw: Recording; natural: Recording; robot: Recording }
+export type TuneMode = 'off' | 'natural' | 'robot'
+const takeFor = (v: Vocal, mode: TuneMode) => (mode === 'off' ? v.raw : v[mode])
 
 /** Everything that belongs to one core loop. The verse and the chorus each have their own. */
 type Part = { lesson: Lesson; custom: DrumGrid | null; chords: string[]; myNotes: Note[] | null; tuneChoice: 'example' | 'mine'; lyrics: string[] }
@@ -118,7 +124,8 @@ export default function App() {
   const [raw, setRaw] = useState<{ drums?: Recording; hum?: Recording }>({})
   const [drumInfo, setDrumInfo] = useState('')
   const [humInfo, setHumInfo] = useState('')
-  const [vocals, setVocals] = useState<Record<PartId, Recording | null>>({ verse: null, chorus: null })
+  const [vocals, setVocals] = useState<Record<PartId, Vocal | null>>({ verse: null, chorus: null })
+  const [tuneMode, setTuneMode] = useState<TuneMode>('natural')
   const [singInfo, setSingInfo] = useState('')
   const [section, setSection] = useState(-1)
   const [songPlaying, setSongPlaying] = useState(false)
@@ -325,7 +332,7 @@ export default function App() {
   }
 
   async function coach(kind: 'beat' | 'melody' | 'vocal'): Promise<Coaching> {
-    const rec = kind === 'beat' ? raw.drums : kind === 'vocal' ? vocals[editing] : raw.hum
+    const rec = kind === 'beat' ? raw.drums : kind === 'vocal' ? vocals[editing]?.raw : raw.hum
     if (!rec || !genre) throw new Error('Record a take first.')
     const l = cur.lesson
     const target = `kick on ${countWords(option(KICKS, l.kick).steps)}; snare on ${countWords(option(SNARES, l.snare).steps)}; hi-hat on ${countWords(option(HATS, l.hat).steps)}`
@@ -405,8 +412,14 @@ export default function App() {
         setSingInfo('Songmaker could not hear you. Move closer to the microphone and try again.')
         return
       }
-      setVocal(editing, rec)
-      setVocals((v) => ({ ...v, [editing]: rec }))
+      const opts = { notes: curNotes, bpm, preroll: rec.preroll }
+      const take: Vocal = {
+        raw: rec,
+        natural: { ...rec, samples: autotune(rec.samples, rec.sampleRate, { ...opts, glide: 0.3 }) },
+        robot: { ...rec, samples: autotune(rec.samples, rec.sampleRate, { ...opts, glide: 1 }) },
+      }
+      setVocal(editing, takeFor(take, tuneMode))
+      setVocals((v) => ({ ...v, [editing]: take }))
       setSingInfo(`Your voice is now part of the ${editing}. Listen back, or sing it again until you like it.`)
       await startPlay()
     } catch (e) {
@@ -414,6 +427,14 @@ export default function App() {
     } finally {
       setBusy(null)
       setCount('')
+    }
+  }
+
+  function chooseTune(mode: TuneMode) {
+    setTuneMode(mode)
+    for (const part of ['verse', 'chorus'] as const) {
+      const v = vocals[part]
+      if (v) setVocal(part, takeFor(v, mode))
     }
   }
 
@@ -839,6 +860,8 @@ export default function App() {
             hasVocal={!!vocals[editing]}
             onSing={recordSing}
             onRemoveVocal={removeVocal}
+            tune={tuneMode}
+            onTune={chooseTune}
             onCoachVocal={() => coach('vocal')}
             singInfo={singInfo}
           />
