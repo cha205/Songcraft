@@ -20,3 +20,9 @@ Thumbs.db
 
 tools/raw/
 __pycache__/
+
+# Local notes
+*.md
+!README.md
+docs/
+.claude/
