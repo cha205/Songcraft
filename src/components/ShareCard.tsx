@@ -38,7 +38,7 @@ export function ShareCard({ url, title, onClose }: { url: string; title: string;
             <Icon name={copied ? 'check' : 'notes'} size={26} /> {copied ? 'Link copied' : 'Copy link'}
           </button>
           {canShare && (
-            <button className="btn white lg" onClick={() => navigator.share({ title: title || 'My song', text: 'Listen to the song I made with Songmaker', url }).catch(() => {})}>
+            <button className="btn white lg" onClick={() => navigator.share({ title: title || 'My song', text: 'Listen to the song I made with Songcraft', url }).catch(() => {})}>
               <Icon name="speaker" size={26} /> Share
             </button>
           )}

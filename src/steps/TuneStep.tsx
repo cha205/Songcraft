@@ -72,7 +72,7 @@ export function TuneStep(p: Props) {
   return (
     <section className="step">
       <StepHead icon="mic" title={p.part === 'chorus' ? 'Hum the chorus melody' : 'Hum the melody'}>
-        The melody is the part of a song people sing along to. You hum it, and Songmaker plays it on a real instrument such as piano,
+        The melody is the part of a song people sing along to. You hum it, and Songcraft plays it on a real instrument such as piano,
         flute or violin, on the beat and in key.
       </StepHead>
 
@@ -127,7 +127,7 @@ export function TuneStep(p: Props) {
 
         {stage === 'review' && p.myNotes && (
           <>
-            <Coach icon="sparkle">Songmaker turned your humming into notes. Play it back, pick an instrument, then keep it or try again.</Coach>
+            <Coach icon="sparkle">Songcraft turned your humming into notes. Play it back, pick an instrument, then keep it or try again.</Coach>
             {p.info && <p className="notice good">{p.info}</p>}
             <GeminiCoach key={p.info} onCoach={p.onCoach} />
             <div className="big-actions top">

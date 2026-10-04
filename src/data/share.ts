@@ -16,7 +16,7 @@ export type SharedSong = {
   swing: number
   kit: KitId
   fill: boolean
-  chordInst: ChordInstId
+  chordInsts: ChordInstId[]
   bass: BassId
   lead: LeadId
   extras: ExtraId[]
@@ -52,7 +52,7 @@ async function pipe(data: Uint8Array, stream: CompressionStream | DecompressionS
 export async function encodeSong(s: SharedSong): Promise<string> {
   const part = (p: SharedPart) => [b64(gridBits(p.grid)), b64(Uint8Array.from(p.notes.flatMap((n) => [n.start, n.len, n.midi]))), p.chords.join(' '), p.lyrics]
   const sections = s.sections?.map((l) => LAYER_KEYS.reduce((m, k, i) => m | (l[k] ? 1 << i : 0), 0))
-  const json = JSON.stringify([1, s.genre, s.feeling, s.length, s.bpm, s.swing, s.kit, s.fill ? 1 : 0, s.chordInst, s.bass, s.lead, s.extras, s.title, s.topic, part(s.parts.verse), part(s.parts.chorus), sections ?? 0])
+  const json = JSON.stringify([1, s.genre, s.feeling, s.length, s.bpm, s.swing, s.kit, s.fill ? 1 : 0, s.chordInsts, s.bass, s.lead, s.extras, s.title, s.topic, part(s.parts.verse), part(s.parts.chorus), sections ?? 0])
   const packed = await pipe(new TextEncoder().encode(json), new CompressionStream('deflate-raw'))
   return b64(packed).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
@@ -76,7 +76,7 @@ export async function decodeSong(code: string): Promise<SharedSong> {
     swing: Math.max(0, Math.min(0.5, Number(a[5]) || 0)),
     kit: one(a[6], KITS),
     fill: !!a[7],
-    chordInst: one(a[8], CHORD_INSTS),
+    chordInsts: (Array.isArray(a[8]) ? a[8] : [a[8]]).filter((c: unknown) => CHORD_INSTS.some((x) => x.id === c)),
     bass: one(a[9], BASSES),
     lead: one(a[10], LEADS),
     extras: (Array.isArray(a[11]) ? a[11] : []).filter((e: unknown) => EXTRAS.some((x) => x.id === e)),

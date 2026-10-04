@@ -9,14 +9,14 @@ const PREFER_MS = { blueprint: 20000, lyrics: 5000, coach: 25000, cover: 35000 }
 export const TASKS = ['blueprint', 'lyrics', 'coach', 'producer', 'cover']
 
 const GENRES = ['pop', 'hiphop', 'lofi', 'rnb', 'dance', 'rock', 'acoustic', 'latin']
-const KICKS = ['heartbeat', 'four', 'laidback', 'bounce', 'rolling', 'sparse']
-const SNARES = ['backbeat', 'halftime', 'ghost', 'dembow']
-const HATS = ['quarter', 'eighth', 'offbeat', 'sixteenth', 'trap']
-const KITS = ['acoustic', 'kit8', 'cr78', 'linn', 'techno', 'breakbeat', 'r8']
-const LEADS = ['piano', 'flute', 'guitar', 'violin', 'synth', 'bells']
-const CHORD_INSTS = ['piano', 'guitar', 'strings', 'pad']
-const BASSES = ['roots', 'eighths', 'sub']
-const EXTRAS = ['strings', 'guitar', 'arp', 'flute', 'pad']
+const KICKS = ['heartbeat', 'four', 'laidback', 'bounce', 'rolling', 'sparse', 'push', 'double', 'none']
+const SNARES = ['backbeat', 'halftime', 'ghost', 'dembow', 'motown', 'pickup', 'none']
+const HATS = ['quarter', 'eighth', 'offbeat', 'sixteenth', 'trap', 'shuffle', 'gallop', 'none']
+const KITS = ['acoustic', 'kit8', 'cr78', 'linn', 'techno', 'breakbeat', 'r8', 'kit3', 'kpr77', 'stark', 'fm', 'bongos', 'break8', 'break9']
+const LEADS = ['piano', 'flute', 'guitar', 'violin', 'synth', 'bells', 'sax', 'trumpet', 'eguitar', 'harp', 'organ', 'nylon']
+const CHORD_INSTS = ['piano', 'guitar', 'strings', 'pad', 'eguitar', 'organ', 'nylon', 'harp']
+const BASSES = ['roots', 'eighths', 'sub', 'electric', 'octave', 'none']
+const EXTRAS = ['strings', 'guitar', 'arp', 'flute', 'pad', 'eguitar', 'organ']
 const CHORDS = ['C', 'Dm', 'Em', 'F', 'G', 'Am']
 
 const str = (e) => (e ? { type: 'STRING', enum: e } : { type: 'STRING' })
@@ -141,7 +141,7 @@ Use simple words a 10-year-old understands. Be honest but kind. If the recording
 
 function producerPrompt({ text, state, step }) {
   const said = text ? `They typed: """${String(text).slice(0, 300)}"""` : 'Listen to the audio: it is what they said to you.'
-  return `You are the friendly producer and music teacher inside Songmaker, talking with a beginner (maybe a child) who is building an original song.
+  return `You are the friendly producer and music teacher inside Songcraft, talking with a beginner (maybe a child) who is building an original song.
 ${said}
 Do what they ask by changing the song's settings, and/or answer their question.
 
@@ -152,15 +152,15 @@ Settings you can change (only these values exist):
 - genre: pop, hiphop (rap and trap), lofi (calm study music), rnb (smooth, soulful), dance (club, electronic), rock, acoustic (ballads, folk), latin (reggaeton).
 - feeling: bright = happy, hopeful (major chords). dark = sad, serious, intense (minor chords).
 - bpm: 60 to 160. swing: 0 (straight) to 0.5 (bouncy, shuffled).
-- kit: acoustic (real drums), kit8 (808 machine, hip-hop), cr78 (vintage machine), linn (80s machine), techno (club kit), breakbeat, r8 (studio machine).
-- kick: heartbeat (beats 1 and 3), four (every beat, dance), laidback, bounce, rolling (trap), sparse.
-- snare: backbeat (beats 2 and 4), halftime (beat 3, heavy), ghost (funky extra taps), dembow (reggaeton).
-- hat: quarter (calm), eighth, offbeat (house), sixteenth (busy), trap (fast rolls).
+- kit: acoustic (real drums), kit8 (808 machine, hip-hop), cr78 (vintage machine), linn (80s machine), techno (club kit), breakbeat, r8 (studio machine), kit3 (dusty, lo-fi), kpr77 (toy machine), stark (hard), fm (electro), bongos (Latin), break8 (funk break), break9 (soul break).
+- kick: heartbeat (beats 1 and 3), four (every beat, dance), laidback, bounce, rolling (trap), sparse, push (R&B, funk), double (rock), none.
+- snare: backbeat (beats 2 and 4), halftime (beat 3, heavy), ghost (funky extra taps), dembow (reggaeton), motown (every beat), pickup (extra hit at the end), none.
+- hat: quarter (calm), eighth, offbeat (house), sixteenth (busy), trap (fast rolls), shuffle (bouncy), gallop (rock), none.
 - fill: true adds a drum fill at the end of each loop.
 - chords: exactly four of C, Dm, Em, F, G, Am. Bright songs usually start on C, F or G; dark songs on Am, Dm or Em.
-- chordInst: piano, guitar, strings, pad. bass: roots (follows the kick), eighths (driving), sub (deep 808).
-- lead (the instrument that plays the melody): piano, flute, guitar, violin, synth, bells.
-- extras: the complete new list of added instruments (keep the current ones unless they want them gone): strings, guitar, arp (synth arpeggio), flute, pad. Use [] to remove them all.
+- chordInst: piano, guitar, eguitar (electric power chords, rock), nylon (Spanish guitar), strings, organ, harp, pad. bass: roots (follows the kick), electric (bass guitar), eighths (driving), octave (disco), sub (deep 808), none.
+- lead (the instrument that plays the melody): piano, flute, guitar, eguitar (electric), nylon (Spanish guitar), violin, sax, trumpet, harp, organ, synth, bells.
+- extras: the complete new list of added instruments (keep the current ones unless they want them gone): strings, guitar, eguitar (power chords), organ, arp (synth arpeggio), flute, pad. Use none to remove them all.
 - topic: what the lyrics are about, 3 to 8 words.
 - changes: a list of { setting, value } pairs, one for each setting that should change, and nothing else. Values are plain text: chords are four chords separated by spaces; extras is the complete new list separated by commas, or none; fill is true or false.
 - part: which loop drum and chord changes apply to: verse, chorus or both. Default to the one they are working on.

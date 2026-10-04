@@ -17,12 +17,12 @@ const ROWS: { icon: IconName; you: string; tech: string; how: string; gemini?: b
 /** A one-screen answer to "how does this work?", written for judges and curious users. */
 export function HowItWorks({ onClose }: { onClose: () => void }) {
   return (
-    <div className="modal-back" role="dialog" aria-modal="true" aria-label="How Songmaker works" onClick={onClose}>
+    <div className="modal-back" role="dialog" aria-modal="true" aria-label="How Songcraft works" onClick={onClose}>
       <div className="card modal" onClick={(e) => e.stopPropagation()}>
         <button className="btn white modal-x" onClick={onClose}>
           Close
         </button>
-        <h2 className="modal-title">How Songmaker works</h2>
+        <h2 className="modal-title">How Songcraft works</h2>
         <p className="modal-lead">What you do, and the technology that makes it happen. AI never makes any of the sound: every beat, note and word comes from you.</p>
         <div className="how-rows">
           {ROWS.map((r) => (

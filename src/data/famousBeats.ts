@@ -1,4 +1,4 @@
-// "Beats from songs you know": simplified versions of famous songs' basic drum grooves, rebuilt with Songmaker's own
+// "Beats from songs you know": simplified versions of famous songs' basic drum grooves, rebuilt with Songcraft's own
 // drums so beginners can study and try them. No audio, melody or lyrics from the songs is used.
 // To remove the whole section, set SHOW_FAMOUS_BEATS to false. To change the list, edit FAMOUS_BEATS.
 import { STEPS } from '../audio/analysis'

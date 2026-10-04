@@ -24,7 +24,7 @@ export function FamousBeats(p: Props) {
       <div className="famous-head">
         <div>
           <span className="mini-label">Beats from songs you know</span>
-          <p>Simplified versions of famous drum grooves, played on Songmaker's drums. Try one, hear what makes it work, then change it into your own.</p>
+          <p>Simplified versions of famous drum grooves, played on Songcraft's drums. Try one, hear what makes it work, then change it into your own.</p>
         </div>
         {tried && (
           <button className="btn white" onClick={p.onBack}>

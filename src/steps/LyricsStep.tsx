@@ -1,6 +1,7 @@
 import { BARS } from '../audio/analysis'
 import type { Note } from '../audio/analysis'
 import { Coach, GeminiCoach } from '../components/Guide'
+import { Mixer } from '../components/Mixer'
 import { Icon } from '../components/Icon'
 import { StepHead } from '../components/StepHead'
 import { LYRIC_PROMPTS } from '../data/genres'
@@ -34,10 +35,12 @@ type Props = {
   singInfo: string
   tune: 'off' | 'natural' | 'robot'
   onTune: (t: 'off' | 'natural' | 'robot') => void
+  mix: { music: number; voice: number }
+  onMix: (music: number, voice: number) => void
 }
 
 const TUNES = [
-  { id: 'off', name: 'Off', why: 'Your voice exactly as you sang it.' },
+  { id: 'off', name: 'Off', why: 'Your voice as you sang it, cleaned up with studio effects.' },
   { id: 'natural', name: 'Natural', why: 'Gently pulls each note onto your melody.' },
   { id: 'robot', name: 'Robot', why: 'Snaps every note into place for that electronic sound.' },
 ] as const
@@ -167,6 +170,7 @@ export function LyricsStep(p: Props) {
               <small>{TUNES.find((t) => t.id === p.tune)?.why}</small>
             </div>
           )}
+          {p.hasVocal && <Mixer music={p.mix.music} voice={p.mix.voice} onChange={p.onMix} />}
           {p.hasVocal && <GeminiCoach key={p.singInfo} onCoach={p.onCoachVocal} />}
         </div>
 

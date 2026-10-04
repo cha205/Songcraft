@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { beatboxToHits, hitsToGrid, humToNotes } from './audio/analysis'
-import type { Drum, DrumGrid, Note } from './audio/analysis'
+import { humToNotes } from './audio/analysis'
+import type { DrumGrid, Note } from './audio/analysis'
 import { autotune } from './audio/autotune'
+import { cleanVocal } from './audio/vocal'
 import { countWords } from './audio/compare'
-import { ALL, duck, play, playRaw, playSong, preload, record, setBpm, setStepListener, setSwing, setVocal, song, startListening, stop } from './audio/engine'
+import { ALL, duck, play, playRaw, playSong, preload, record, setBpm, setMix, setStepListener, setSwing, setVocal, song, startListening, stop } from './audio/engine'
 import type { Layers, Listening, Recording } from './audio/engine'
 import { askProducer, coachTake, lyricHelp, makeCover, planSong } from './ai'
 import type { Blueprint, Coaching, LyricHelp, ProducerChanges, ProducerReply } from './ai'
@@ -17,6 +18,7 @@ import type { ProducerMsg } from './components/Producer'
 import { RecordOverlay } from './components/RecordOverlay'
 import { ShareCard } from './components/ShareCard'
 import { decodeSong, encodeSong } from './data/share'
+import { clearProject, loadProject, saveProject } from './data/project'
 import type { SharedPart } from './data/share'
 import { sectionsFor } from './data/sections'
 import type { PartId, Section, SongLength } from './data/sections'
@@ -65,7 +67,7 @@ type Snapshot = {
   kit: KitId
   parts: Record<PartId, Part>
   fill: boolean
-  chordInst: ChordInstId
+  chordInsts: ChordInstId[]
   bass: BassId
   lead: LeadId
   extras: ExtraId[]
@@ -86,28 +88,32 @@ const SUGGESTIONS: string[][] = [
 ]
 
 export default function App() {
-  const [stepIdx, setStepIdx] = useState(0)
-  const [genreId, setGenreId] = useState<GenreId | null>(null)
-  const [feeling, setFeeling] = useState<Feeling>('bright')
-  const [length, setLength] = useState<SongLength>('full')
-  const [bpm, setBpmState] = useState(100)
-  const [swing, setSwingState] = useState(0)
-  const [kit, setKit] = useState<KitId>('acoustic')
-  const [parts, setParts] = useState<Record<PartId, Part>>({
-    verse: emptyPart({ kick: 'heartbeat', snare: 'backbeat', hat: 'eighth' }, ['C', 'G', 'Am', 'F']),
-    chorus: emptyPart({ kick: 'heartbeat', snare: 'backbeat', hat: 'sixteenth' }, ['F', 'G', 'C', 'Am']),
-  })
-  const [editing, setEditing] = useState<PartId>('verse')
-  const [chorusStarted, setChorusStarted] = useState(false)
-  const [fill, setFill] = useState(false)
-  const [chordInst, setChordInst] = useState<ChordInstId>('pad')
-  const [bass, setBass] = useState<BassId>('roots')
-  const [lead, setLead] = useState<LeadId>('piano')
-  const [extras, setExtras] = useState<ExtraId[]>([])
+  // The song saved in this browser, if any, so a refresh carries on where the user was.
+  const [saved] = useState(loadProject)
+  const [stepIdx, setStepIdx] = useState(saved?.stepIdx ?? 0)
+  const [genreId, setGenreId] = useState<GenreId | null>(saved?.genreId ?? null)
+  const [feeling, setFeeling] = useState<Feeling>(saved?.feeling ?? 'bright')
+  const [length, setLength] = useState<SongLength>(saved?.length ?? 'full')
+  const [bpm, setBpmState] = useState(saved?.bpm ?? 100)
+  const [swing, setSwingState] = useState(saved?.swing ?? 0)
+  const [kit, setKit] = useState<KitId>(saved?.kit ?? 'acoustic')
+  const [parts, setParts] = useState<Record<PartId, Part>>(
+    saved?.parts ?? {
+      verse: emptyPart({ kick: 'heartbeat', snare: 'backbeat', hat: 'eighth' }, ['C', 'G', 'Am', 'F']),
+      chorus: emptyPart({ kick: 'heartbeat', snare: 'backbeat', hat: 'sixteenth' }, ['F', 'G', 'C', 'Am']),
+    },
+  )
+  const [editing, setEditing] = useState<PartId>(saved?.editing ?? 'verse')
+  const [chorusStarted, setChorusStarted] = useState(saved?.chorusStarted ?? false)
+  const [fill, setFill] = useState(saved?.fill ?? false)
+  const [chordInsts, setChordInsts] = useState<ChordInstId[]>(saved?.chordInst ?? ['pad'])
+  const [bass, setBass] = useState<BassId>(saved?.bass ?? 'roots')
+  const [lead, setLead] = useState<LeadId>(saved?.lead ?? 'piano')
+  const [extras, setExtras] = useState<ExtraId[]>(saved?.extras ?? [])
   // null = use the default sections for the chosen length; set once the user edits the arrangement.
-  const [customSections, setCustomSections] = useState<Section[] | null>(null)
-  const [topic, setTopic] = useState('')
-  const [songTitle, setSongTitle] = useState('')
+  const [customSections, setCustomSections] = useState<Section[] | null>(saved?.customSections ?? null)
+  const [topic, setTopic] = useState(saved?.topic ?? '')
+  const [songTitle, setSongTitle] = useState(saved?.songTitle ?? '')
   const [plans, setPlans] = useState<Blueprint[] | null>(null)
   const [planModel, setPlanModel] = useState('')
   const [planPick, setPlanPick] = useState(-1)
@@ -120,12 +126,13 @@ export default function App() {
   const [playStep, setPlayStep] = useState(-1)
   const [busy, setBusy] = useState<'drums' | 'hum' | 'sing' | null>(null)
   const [count, setCount] = useState('')
-  const [click, setClick] = useState(false)
+  // The click track while humming or singing (off: the beat plays instead).
+  const click = false
   const [raw, setRaw] = useState<{ drums?: Recording; hum?: Recording }>({})
-  const [drumInfo, setDrumInfo] = useState('')
   const [humInfo, setHumInfo] = useState('')
   const [vocals, setVocals] = useState<Record<PartId, Vocal | null>>({ verse: null, chorus: null })
-  const [tuneMode, setTuneMode] = useState<TuneMode>('natural')
+  const [tuneMode, setTuneMode] = useState<TuneMode>('off')
+  const [mix, setMixState] = useState({ music: 1, voice: 1 })
   const [singInfo, setSingInfo] = useState('')
   const [section, setSection] = useState(-1)
   const [songPlaying, setSongPlaying] = useState(false)
@@ -181,7 +188,7 @@ export default function App() {
         setSwingState(s.swing)
         setKit(s.kit)
         setFill(s.fill)
-        setChordInst(s.chordInst)
+        setChordInsts(s.chordInsts)
         setBass(s.bass)
         setLead(s.lead)
         setExtras(s.extras)
@@ -208,18 +215,27 @@ export default function App() {
       part: editing,
       fill,
       lead,
-      chordInst,
+      chordInsts,
       bass,
       kit,
       extras: stepIdx >= 5 ? extras : [],
       layers: LAYERS_BY_STEP[stepIdx],
     })
-  }, [verseGrid, chorusGrid, verseNotes, chorusNotes, parts, editing, fill, lead, chordInst, bass, kit, extras, stepIdx])
+  }, [verseGrid, chorusGrid, verseNotes, chorusNotes, parts, editing, fill, lead, chordInsts, bass, kit, extras, stepIdx])
+  // Autosave a moment after every change.
+  useEffect(() => {
+    if (!genreId || sharedView) return
+    const t = setTimeout(
+      () => saveProject({ stepIdx, genreId, feeling, length, bpm, swing, kit, parts, editing, chorusStarted, fill, chordInst: chordInsts, bass, lead, extras, customSections, topic, songTitle }),
+      400,
+    )
+    return () => clearTimeout(t)
+  }, [stepIdx, genreId, feeling, length, bpm, swing, kit, parts, editing, chorusStarted, fill, chordInsts, bass, lead, extras, customSections, topic, songTitle, sharedView])
   useEffect(() => setBpm(bpm), [bpm])
   useEffect(() => setSwing(swing), [swing])
   useEffect(() => {
-    if (genreId) preload({ kit, lead, chordInst, extras })
-  }, [genreId, kit, lead, chordInst, extras])
+    if (genreId) preload({ kit, lead, chordInsts, extras, bass })
+  }, [genreId, kit, lead, chordInsts, extras, bass])
 
   const halt = () => {
     stop()
@@ -236,7 +252,7 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  /** Load a style's defaults for both core loops. Clears anything made for the previous style. */
+  /** Load a style's drums, chords and sounds for both core loops. The user's own melody and lyrics are kept. */
   function applyStyle(id: GenreId, f: Feeling) {
     const g = genreById(id)
     halt()
@@ -246,20 +262,20 @@ export default function App() {
     setSwingState(g.swing)
     setKit(g.kit[f])
     const sets = g.chords[f]
-    setParts({ verse: emptyPart(g.drums[f], sets[0].chords), chorus: emptyPart(chorusLesson(g.drums[f]), (sets[1] ?? sets[0]).chords) })
+    const keep = (p: Part, fresh: Part): Part => ({ ...fresh, myNotes: p.myNotes, tuneChoice: p.tuneChoice, lyrics: p.lyrics })
+    setParts((ps) => ({ verse: keep(ps.verse, emptyPart(g.drums[f], sets[0].chords)), chorus: keep(ps.chorus, emptyPart(chorusLesson(g.drums[f]), (sets[1] ?? sets[0]).chords)) }))
     setEditing(length === 'chorus' ? 'chorus' : 'verse')
     setChorusStarted(length === 'chorus')
-    setChordInst(g.chordInst)
+    setChordInsts([g.chordInst])
     setBass(g.bass)
     setLead(g.lead)
-    setExtras(g.extras)
+    // Extra instruments are suggested on the Arrange step, never added for you.
+    setExtras([])
     setCustomSections(null)
     setWavUrl(null)
     setRaw({})
-    setDrumInfo('')
     setHumInfo('')
     setHelp({ verse: null, chorus: null })
-    clearVocals()
   }
 
   function chooseLength(l: SongLength) {
@@ -280,10 +296,10 @@ export default function App() {
     const lesson = { kick: bp.kick, snare: bp.snare, hat: bp.hat }
     const chorusChords = sets.find((s) => s.chords.join() !== bp.chords.join())?.chords ?? sets[0].chords
     setParts({ verse: emptyPart(lesson, bp.chords), chorus: emptyPart(chorusLesson(lesson), chorusChords) })
-    setChordInst(bp.chordInst)
+    setChordInsts([bp.chordInst])
     setBass(bp.bass)
     setLead(bp.lead)
-    setExtras(bp.extras)
+    setExtras([])
     setTopic(bp.topic)
     setSongTitle(bp.title)
   }
@@ -338,31 +354,6 @@ export default function App() {
     return coachTake({ kind: kind === 'beat' ? 'beat' : 'melody', samples: rec.samples, sampleRate: rec.sampleRate, bpm, genre: genre.name, feeling, target })
   }
 
-  async function recordDrums(): Promise<DrumGrid | null> {
-    halt()
-    setBusy('drums')
-    setDrumInfo('')
-    try {
-      const rec = await record('drums', { click, onCount: setCount })
-      setRaw((r) => ({ ...r, drums: rec }))
-      const hits = beatboxToHits(rec.samples, rec.sampleRate, bpm, rec.preroll)
-      console.table(hits)
-      const n = (d: Drum) => hits.filter((h) => h.drum === d).length
-      if (!hits.length) {
-        setDrumInfo('No sounds detected. Move closer to the microphone and try again.')
-        return null
-      }
-      setDrumInfo(`Songmaker heard ${hits.length} sounds: ${n('kick')} kick, ${n('snare')} snare, and ${n('hat')} hi-hat.`)
-      return hitsToGrid(hits)
-    } catch (e) {
-      setDrumInfo(`Microphone unavailable: ${(e as Error).message}`)
-      return null
-    } finally {
-      setBusy(null)
-      setCount('')
-    }
-  }
-
   async function recordHum(): Promise<boolean> {
     halt()
     setBusy('hum')
@@ -377,7 +368,7 @@ export default function App() {
       }
       updatePart({ myNotes: res.notes, tuneChoice: 'mine' })
       setHumInfo(
-        `Songmaker found ${res.notes.length} notes. ` +
+        `Songcraft found ${res.notes.length} notes. ` +
           (res.shift ? `You sang in roughly ${res.hummedKey} major, so it moved the melody to C to match your chords.` : 'Your melody already matches the chords.'),
       )
       await startPlay()
@@ -408,14 +399,16 @@ export default function App() {
       let peak = 0
       for (let i = 0; i < rec.samples.length; i += 64) peak = Math.max(peak, Math.abs(rec.samples[i]))
       if (peak < 0.02) {
-        setSingInfo('Songmaker could not hear you. Move closer to the microphone and try again.')
+        setSingInfo('Songcraft could not hear you. Move closer to the microphone and try again.')
         return
       }
+      // Clean the take first (noise gate and level), then make the two pitch-corrected versions from it.
+      const clean = { ...rec, samples: cleanVocal(rec.samples, rec.sampleRate) }
       const opts = { notes: curNotes, bpm, preroll: rec.preroll }
       const take: Vocal = {
-        raw: rec,
-        natural: { ...rec, samples: autotune(rec.samples, rec.sampleRate, { ...opts, glide: 0.3 }) },
-        robot: { ...rec, samples: autotune(rec.samples, rec.sampleRate, { ...opts, glide: 1 }) },
+        raw: clean,
+        natural: { ...clean, samples: autotune(clean.samples, rec.sampleRate, { ...opts, glide: 0.3 }) },
+        robot: { ...clean, samples: autotune(clean.samples, rec.sampleRate, { ...opts, glide: 1 }) },
       }
       setVocal(editing, takeFor(take, tuneMode))
       setVocals((v) => ({ ...v, [editing]: take }))
@@ -427,6 +420,11 @@ export default function App() {
       setBusy(null)
       setCount('')
     }
+  }
+
+  function changeMix(music: number, voice: number) {
+    setMixState({ music, voice })
+    setMix(music, voice)
   }
 
   function chooseTune(mode: TuneMode) {
@@ -476,7 +474,7 @@ export default function App() {
   }
 
   // ---------------------------------------------------------------- the producer you talk to
-  const snapshot = (): Snapshot => ({ genreId, feeling, bpm, swing, kit, parts, fill, chordInst, bass, lead, extras, topic })
+  const snapshot = (): Snapshot => ({ genreId, feeling, bpm, swing, kit, parts, fill, chordInsts, bass, lead, extras, topic })
   function restore(s: Snapshot) {
     setGenreId(s.genreId)
     setFeeling(s.feeling)
@@ -485,7 +483,7 @@ export default function App() {
     setKit(s.kit)
     setParts(s.parts)
     setFill(s.fill)
-    setChordInst(s.chordInst)
+    setChordInsts(s.chordInsts)
     setBass(s.bass)
     setLead(s.lead)
     setExtras(s.extras)
@@ -493,7 +491,7 @@ export default function App() {
   }
   const producerState = () => {
     const part = (p: Part) => ({ ...p.lesson, ownBeat: !!p.custom, chords: p.chords, ownMelody: p.tuneChoice === 'mine', lyrics: p.lyrics.filter(Boolean) })
-    return { genre: genreId, feeling, bpm, swing, kit, fill, songLength: length, workingOn: editing, verse: part(parts.verse), chorus: part(parts.chorus), chordInst, bass, lead, extras, topic, title: songTitle }
+    return { genre: genreId, feeling, bpm, swing, kit, fill, songLength: length, workingOn: editing, verse: part(parts.verse), chorus: part(parts.chorus), chordInst: chordInsts[0] ?? 'none', chordLayers: chordInsts, bass, lead, extras, topic, title: songTitle }
   }
 
   /** Apply the producer's changes to the song and return a plain list of what changed. */
@@ -555,7 +553,11 @@ export default function App() {
       }
     }
     set(kit, c.kit, g.kit[f], setKit, 'Drum kit', KITS)
-    set(chordInst, c.chordInst, g.chordInst, setChordInst, 'Chords played on', CHORD_INSTS)
+    const wantInst = c.chordInst ?? (newGenre ? g.chordInst : undefined)
+    if (wantInst && !(chordInsts.length === 1 && chordInsts[0] === wantInst)) {
+      setChordInsts([wantInst])
+      done.push(`Chords played on: ${nameOf(CHORD_INSTS, wantInst)}`)
+    }
     set(bass, c.bass, g.bass, setBass, 'Bass', BASSES)
     set(lead, c.lead, g.lead, setLead, 'Melody played on', LEADS)
     if (c.extras && c.extras.join() !== extras.join()) {
@@ -659,7 +661,7 @@ export default function App() {
       swing,
       kit,
       fill,
-      chordInst,
+      chordInsts,
       bass,
       lead,
       extras,
@@ -674,6 +676,7 @@ export default function App() {
   function restart() {
     halt()
     clearVocals()
+    clearProject()
     setSharedView(false)
     if (location.hash) history.replaceState(null, '', location.pathname)
     setGenreId(null)
@@ -706,7 +709,7 @@ export default function App() {
         <button className="logo" onClick={() => goTo(0)} disabled={!!busy}>
           <Icon name="vinyl" size={42} className={playing || songPlaying ? 'spin' : ''} />
           <span className="logo-text">
-            Song<span>maker</span>
+            Song<span>craft</span>
           </span>
         </button>
         {genre && stepIdx > 0 && (
@@ -786,14 +789,6 @@ export default function App() {
             fill={fill}
             onFill={setFill}
             {...stepProps}
-            busy={!!busy}
-            onRecord={recordDrums}
-            onCoach={() => coach('beat')}
-            info={drumInfo}
-            hasRaw={!!raw.drums}
-            onRaw={() => raw.drums && playRaw(raw.drums.samples)}
-            click={click}
-            onClick={setClick}
             onDone={next}
           />
         )}
@@ -806,8 +801,8 @@ export default function App() {
             feeling={feeling}
             chords={cur.chords}
             onChords={(c) => updatePart({ chords: c })}
-            chordInst={chordInst}
-            onChordInst={setChordInst}
+            chordInsts={chordInsts}
+            onChordInsts={setChordInsts}
             bass={bass}
             onBass={setBass}
             {...stepProps}
@@ -861,6 +856,8 @@ export default function App() {
             onRemoveVocal={removeVocal}
             tune={tuneMode}
             onTune={chooseTune}
+            mix={mix}
+            onMix={changeMix}
             onCoachVocal={() => coach('vocal')}
             singInfo={singInfo}
           />
@@ -909,6 +906,9 @@ export default function App() {
             onNewCover={paintCover}
             onShare={openShare}
             shared={sharedView}
+            mix={mix}
+            onMix={changeMix}
+            hasVocal={!!(vocals.verse || vocals.chorus)}
           />
         )}
       </main>

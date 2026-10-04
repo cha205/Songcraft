@@ -26,7 +26,7 @@ export const song = {
   verseChords: null as string[] | null,
   chorusChords: null as string[] | null,
   lead: 'piano' as LeadId,
-  chordInst: 'pad' as ChordInstId,
+  chordInsts: ['pad'] as ChordInstId[],
   bass: 'roots' as BassId,
   extras: [] as ExtraId[],
   layers: ALL,
@@ -51,13 +51,25 @@ const freq = (midi: number) => Tone.Frequency(midi, 'midi').toFrequency()
 
 // Real instrument samples (tonejs-instruments, CC BY 3.0) and drum kits (Tone.js drum-samples).
 const NB = 'https://nbrosowsky.github.io/tonejs-instruments/samples/'
-const SAMPLED: Record<'flute' | 'violin' | 'cello' | 'guitar', { folder: string; notes: string[]; volume: number }> = {
+type SampledId = 'flute' | 'violin' | 'cello' | 'guitar' | 'sax' | 'trumpet' | 'eguitar' | 'harp' | 'organ' | 'nylon' | 'ebass'
+const SAMPLED: Record<SampledId, { folder: string; notes: string[]; volume: number }> = {
   flute: { folder: 'flute', notes: ['C4', 'E4', 'A4', 'C5', 'E5', 'A5', 'C6', 'E6', 'A6', 'C7'], volume: -6 },
   violin: { folder: 'violin', notes: ['G3', 'A3', 'C4', 'E4', 'G4', 'A4', 'C5', 'E5', 'G5', 'A5', 'C6', 'E6', 'G6', 'A6', 'C7'], volume: -8 },
   cello: { folder: 'cello', notes: ['C2', 'E2', 'G2', 'A2', 'C3', 'E3', 'G3', 'A3', 'C4', 'E4', 'G4', 'A4', 'C5'], volume: -8 },
   guitar: { folder: 'guitar-acoustic', notes: ['E2', 'G2', 'A2', 'C3', 'E3', 'G3', 'A3', 'C4', 'E4', 'G4', 'A4', 'C5'], volume: -4 },
+  sax: { folder: 'saxophone', notes: ['D3', 'F3', 'G3', 'B3', 'C4', 'E4', 'G4', 'A4', 'C5', 'E5', 'G5', 'A5'], volume: -8 },
+  trumpet: { folder: 'trumpet', notes: ['F3', 'A3', 'C4', 'F4', 'G4', 'D5', 'F5', 'A5', 'C6'], volume: -10 },
+  eguitar: { folder: 'guitar-electric', notes: ['E2', 'A2', 'C3', 'A3', 'C4', 'A4', 'C5', 'A5', 'C6'], volume: -10 },
+  harp: { folder: 'harp', notes: ['D2', 'F2', 'A2', 'C3', 'E3', 'G3', 'B3', 'D4', 'F4', 'A4', 'C5', 'E5', 'G5', 'B5'], volume: -4 },
+  organ: { folder: 'organ', notes: ['C2', 'A2', 'C3', 'A3', 'C4', 'A4', 'C5', 'A5'], volume: -14 },
+  nylon: { folder: 'guitar-nylon', notes: ['D2', 'E2', 'A2', 'D3', 'E3', 'G3', 'A3', 'B3', 'E4', 'A4', 'B4', 'D5', 'E5', 'G5'], volume: -4 },
+  ebass: { folder: 'bass-electric', notes: ['E1', 'G1', 'E2', 'G2', 'E3', 'G3'], volume: -2 },
 }
-const samplers: Partial<Record<keyof typeof SAMPLED, Tone.Sampler>> = {}
+// Instruments a melody can be played on, and the sample set each one uses.
+const LEAD_SAMPLES: Partial<Record<LeadId, SampledId>> = { flute: 'flute', violin: 'violin', guitar: 'guitar', sax: 'sax', trumpet: 'trumpet', eguitar: 'eguitar', harp: 'harp', organ: 'organ', nylon: 'nylon' }
+const CHORD_SAMPLES: Partial<Record<ChordInstId | ExtraId, SampledId[]>> = { guitar: ['guitar'], strings: ['violin', 'cello'], eguitar: ['eguitar'], organ: ['organ'], nylon: ['nylon'], harp: ['harp'], flute: ['flute'] }
+const samplers: Partial<Record<SampledId, Tone.Sampler>> = {}
+let amp: Tone.ToneAudioNode | null = null
 const kits: Partial<Record<KitId, Tone.Players>> = {}
 
 function build() {
@@ -107,16 +119,28 @@ function build() {
   return { kick, snare, hat, click, piano, synth, bells, pad, pluck, bass, sub, reverb, drumBus }
 }
 
-function sampler(name: keyof typeof SAMPLED): Tone.Sampler | null {
+function sampler(name: SampledId): Tone.Sampler | null {
   if (!inst) return null
   if (!samplers[name]) {
     const s = SAMPLED[name]
-    samplers[name] = new Tone.Sampler({
+    const sm = new Tone.Sampler({
       urls: Object.fromEntries(s.notes.map((n) => [n, `${n}.mp3`])),
       baseUrl: `${NB}${s.folder}/`,
       release: 1,
       volume: s.volume,
-    }).connect(inst.reverb)
+    })
+    // The electric guitar goes through a small amp (drive plus a tone filter), the bass straight out.
+    if (name === 'eguitar') {
+      if (!amp) {
+        const drive = new Tone.Distortion({ distortion: 0.55, wet: 0.85 })
+        const tone = new Tone.Filter(3800, 'lowpass')
+        drive.chain(tone, inst.reverb)
+        amp = drive
+      }
+      sm.connect(amp)
+    } else if (name === 'ebass') sm.toDestination()
+    else sm.connect(inst.reverb)
+    samplers[name] = sm
   }
   const sm = samplers[name]!
   return sm.loaded ? sm : null
@@ -135,14 +159,14 @@ function kit(id: KitId): Tone.Players | null {
 }
 
 /** Start downloading the samples a song needs, so they are ready when it plays. */
-export async function preload(opts: { kit?: KitId; lead?: LeadId; chordInst?: ChordInstId; extras?: ExtraId[] }) {
+export async function preload(opts: { kit?: KitId; lead?: LeadId; chordInsts?: ChordInstId[]; extras?: ExtraId[]; bass?: BassId }) {
   await ensure(false)
   if (opts.kit) kit(opts.kit)
-  const names = new Set<keyof typeof SAMPLED>()
-  if (opts.lead === 'flute' || opts.lead === 'violin' || opts.lead === 'guitar') names.add(opts.lead)
-  if (opts.chordInst === 'guitar' || opts.extras?.includes('guitar')) names.add('guitar')
-  if (opts.chordInst === 'strings' || opts.extras?.includes('strings')) names.add('violin').add('cello')
-  if (opts.extras?.includes('flute')) names.add('flute')
+  const names = new Set<SampledId>()
+  const lead = opts.lead && LEAD_SAMPLES[opts.lead]
+  if (lead) names.add(lead)
+  for (const k of [...(opts.chordInsts ?? []), ...(opts.extras ?? [])]) CHORD_SAMPLES[k]?.forEach((n) => names.add(n))
+  if (opts.bass === 'electric') names.add('ebass')
   names.forEach((n) => sampler(n))
 }
 
@@ -163,7 +187,8 @@ function hitDrum(d: 'kick' | 'snare' | 'hat', time: number, vel = 1) {
 function playLead(midi: number, dur: number, time: number, vel = 1) {
   if (!inst) return
   const l = song.lead
-  const s = l === 'flute' || l === 'violin' || l === 'guitar' ? sampler(l) : null
+  const name = LEAD_SAMPLES[l]
+  const s = name ? sampler(name) : null
   if (s) s.triggerAttackRelease(freq(midi), dur, time, vel)
   else if (l === 'piano' && inst.piano.loaded) inst.piano.triggerAttackRelease(freq(midi), dur, time, vel)
   else if (l === 'bells') inst.bells.triggerAttackRelease(freq(midi), dur, time, vel)
@@ -200,6 +225,25 @@ function playChords(kind: ChordInstId | ExtraId, chord: string, step: number, ti
   } else if (kind === 'arp' && b % 2 === 0) {
     const order = [0, 1, 2, 1]
     inst!.pluck.triggerAttackRelease(freq(tones[order[(b / 2) % 4]] + 12), '16n', time, vel * 0.6)
+  } else if (kind === 'eguitar' && b % 2 === 0) {
+    // Power chords: root, fifth and octave, chugged on every eighth note, accented on the beat.
+    const g = sampler('eguitar')
+    const root = bassMidi(chord) + 12
+    const power = [root, root + 7, root + 12]
+    if (g) power.forEach((m) => g.triggerAttackRelease(freq(m), b % 4 === 0 ? bar / 8 : bar / 12, time, vel * (b % 4 === 0 ? 0.9 : 0.6)))
+    else inst!.synth.triggerAttackRelease(power.map(freq), '16n', time, vel * 0.5)
+  } else if (kind === 'organ' && (b === 0 || b === 8)) {
+    const o = sampler('organ')
+    if (o) o.triggerAttackRelease(tones.map(freq), bar / 2, time, vel * 0.7)
+    else inst!.pad.triggerAttackRelease(tones.map(freq), bar / 2, time, vel)
+  } else if ((kind === 'nylon' || kind === 'harp') && b % 2 === 0) {
+    // Picked chord notes, one at a time, like a guitarist or harpist playing an arpeggio.
+    const order = kind === 'harp' ? [0, 1, 2, 3, 2, 1, 0, 1] : [0, 2, 1, 2, 3, 2, 1, 2]
+    const notes = [tones[0] - 12, tones[0], tones[1], tones[2]]
+    const smp = sampler(kind)
+    const m = notes[order[(b / 2) % 8]] + (kind === 'harp' ? 12 : 0)
+    if (smp) smp.triggerAttackRelease(freq(m), bar / 4, time, vel * 0.7)
+    else inst!.pluck.triggerAttackRelease(freq(m), '8n', time, vel * 0.6)
   } else if (kind === 'flute' && (b === 0 || b === 8)) {
     const f = sampler('flute')
     const m = (b === 0 ? tones[2] : tones[1]) + 12
@@ -271,17 +315,26 @@ function tick(time: number, step: number) {
     if (voiceRec) {
       if (step % 16 === 0) inst.pad.triggerAttackRelease(chordMidis(chord).map(freq), '1m', time, 0.4)
     } else if (L?.chords) {
-      playChords(song.chordInst, chord, step, time, barLen, 1)
+      // Several chord instruments can play together; each steps back a little so the chord does not get muddy.
+      const layered = song.chordInsts.length > 1 ? 0.8 : 1
+      for (const ci of song.chordInsts) playChords(ci, chord, step, time, barLen, layered)
     }
     if (L?.extras) {
-      for (const e of song.extras) if (e !== song.chordInst) playChords(e, chord, step, time, barLen, 0.8)
+      for (const e of song.extras) if (!song.chordInsts.includes(e as ChordInstId)) playChords(e, chord, step, time, barLen, 0.8)
     }
     if (L?.bass) {
       const bar = Math.floor(step / 16) * 16
       const barHasKick = grid.kick.slice(bar, bar + 16).some(Boolean)
       const onKick = barHasKick ? grid.kick[step] : step % 8 === 0
       const root = freq(bassMidi(chord))
-      if (song.bass === 'eighths' && step % 2 === 0) inst.bass.triggerAttackRelease(root, '16n', time, step % 4 === 0 ? 1 : 0.7)
+      const eb = song.bass === 'electric' ? sampler('ebass') : null
+      if (song.bass === 'none') {
+        // No bass.
+      } else if (song.bass === 'electric' && onKick) {
+        if (eb) eb.triggerAttackRelease(root, '8n', time, 0.9)
+        else inst.bass.triggerAttackRelease(root, '8n', time)
+      } else if (song.bass === 'octave' && step % 2 === 0) inst.bass.triggerAttackRelease(step % 4 === 0 ? root : root * 2, '16n', time, step % 4 === 0 ? 1 : 0.75)
+      else if (song.bass === 'eighths' && step % 2 === 0) inst.bass.triggerAttackRelease(root, '16n', time, step % 4 === 0 ? 1 : 0.7)
       else if (song.bass === 'sub' && onKick) inst.sub.triggerAttackRelease(root, stepSeconds(bpm) * 3.5, time)
       else if (song.bass === 'roots' && onKick) inst.bass.triggerAttackRelease(root, '8n', time)
     }
@@ -290,7 +343,10 @@ function tick(time: number, step: number) {
 }
 
 async function ensure(startAudio = true) {
-  if (startAudio) await Tone.start()
+  if (startAudio) {
+    unlockPhoneAudio()
+    await Tone.start()
+  }
   if (!inst) inst = build()
   if (!seq) {
     seq = new Tone.Sequence<number>(tick, Array.from({ length: STEPS }, (_, i) => i), '16n')
@@ -299,7 +355,7 @@ async function ensure(startAudio = true) {
   const t = Tone.getTransport()
   t.bpm.value = song.bpm
   t.swing = song.swing
-  t.swingSubdivision = '16n'
+  t.swingSubdivision = '8n'
   if (startAudio) await Promise.race([Tone.loaded(), new Promise((r) => setTimeout(r, 4000))])
 }
 
@@ -311,7 +367,8 @@ export function setBpm(bpm: number) {
 export function setSwing(swing: number) {
   song.swing = swing
   Tone.getTransport().swing = swing
-  Tone.getTransport().swingSubdivision = '16n'
+  // Swing the eighth notes: most hi-hat patterns are eighths, so 16th swing was hard to hear.
+  Tone.getTransport().swingSubdivision = '8n'
 }
 
 export async function play() {
@@ -465,8 +522,9 @@ export async function record(
   const ctx = Tone.getContext()
   await ensureWorklet()
   const stream = await navigator.mediaDevices.getUserMedia({
-    // Noise suppression treats a steady hum as noise and deletes it, so it stays off.
-    audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+    // Noise suppression treats a steady hum as noise and deletes it, so it stays off. Echo cancellation is made for
+    // phone calls and makes a singing voice thin, so it is off for singing (the app asks for headphones).
+    audio: { echoCancellation: kind !== 'sing', noiseSuppression: false, autoGainControl: false },
   })
   const src = ctx.createMediaStreamSource(stream)
   const node = ctx.createAudioWorkletNode('songmaker-rec')
@@ -566,23 +624,36 @@ export async function startListening(): Promise<Listening> {
 /** Turn the music down while someone is speaking over it, and back up afterwards. */
 export function duck(on: boolean) {
   const out = Tone.getDestination()
-  if (!out.mute) out.volume.rampTo(on ? -14 : 0, 0.25)
+  if (!out.mute) out.volume.rampTo(on ? musicDb - 14 : musicDb, 0.25)
 }
 
 // ---------------------------------------------------------------- recorded vocals
 type Vocal = { player: Tone.Player; offset: number; bpm: number }
 const vocals: Partial<Record<'verse' | 'chorus', Vocal>> = {}
 let vocalIn: Tone.Filter | null = null
+let vocalOut: Tone.Volume | null = null
+// Mix levels in dB. Music is the master level; the voice is set relative to it.
+let musicDb = 0
+let voiceDb = 0
 
-/** A small vocal chain: cut the rumble, even out the volume, add a little of the song's reverb. */
+/**
+ * A studio-style vocal chain: cut rumble and boxiness, add presence and air, compress so every word is heard, then
+ * a short slap delay and a plate-like reverb so the voice sits inside the music instead of on top of it.
+ */
 function vocalChain() {
   if (!vocalIn) {
-    vocalIn = new Tone.Filter(110, 'highpass')
-    const comp = new Tone.Compressor(-24, 3)
-    const vol = new Tone.Volume(4)
-    vocalIn.chain(comp, vol)
-    vol.toDestination()
-    if (inst) vol.connect(inst.reverb)
+    vocalIn = new Tone.Filter({ frequency: 95, type: 'highpass', rolloff: -24 })
+    const mud = new Tone.Filter({ frequency: 320, type: 'peaking', Q: 1.1, gain: -4 })
+    const presence = new Tone.Filter({ frequency: 3800, type: 'peaking', Q: 0.9, gain: 3.5 })
+    const air = new Tone.Filter({ frequency: 10000, type: 'highshelf', gain: 4 })
+    const harsh = new Tone.Filter({ frequency: 7000, type: 'peaking', Q: 3, gain: -2.5 })
+    const comp = new Tone.Compressor({ threshold: -26, ratio: 4, attack: 0.004, knee: 8, release: 0.12 })
+    const glue = new Tone.Compressor({ threshold: -12, ratio: 2, attack: 0.02, release: 0.25 })
+    vocalOut = new Tone.Volume(voiceDb - musicDb + 2)
+    const slap = new Tone.FeedbackDelay({ delayTime: 0.11, feedback: 0.12, wet: 0.1 })
+    const plate = new Tone.Reverb({ decay: 1.8, preDelay: 0.02, wet: 0.2 })
+    vocalIn.chain(mud, presence, harsh, air, comp, glue, vocalOut, slap, plate)
+    plate.toDestination()
   }
   return vocalIn
 }
@@ -594,4 +665,50 @@ export function setVocal(part: 'verse' | 'chorus', rec: Recording | null) {
   if (!rec) return
   const player = new Tone.Player(Tone.ToneAudioBuffer.fromArray(rec.samples)).connect(vocalChain())
   vocals[part] = { player, offset: rec.preroll, bpm: song.bpm }
+}
+
+/** Set the music and voice levels, 0 to 1.5 each (1 = normal). */
+export function setMix(music: number, voice: number) {
+  musicDb = music <= 0 ? -60 : 20 * Math.log10(music)
+  voiceDb = voice <= 0 ? -60 : 20 * Math.log10(voice)
+  const out = Tone.getDestination()
+  if (!out.mute) out.volume.rampTo(musicDb, 0.1)
+  // The voice goes through the master too, so take the music level back out of it.
+  vocalOut?.volume.rampTo(voiceDb - musicDb + 2, 0.1)
+}
+
+// ---------------------------------------------------------------- phones
+// iPhones play Web Audio through the ringer channel, so the silent switch mutes it. Asking for a playback audio session
+// (Safari 16.4+) and playing a silent <audio> element both move the page to the media channel.
+let phoneUnlocked = false
+const SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='
+function unlockPhoneAudio() {
+  if (phoneUnlocked) return
+  phoneUnlocked = true
+  try {
+    const nav = navigator as Navigator & { audioSession?: { type: string } }
+    if (nav.audioSession) nav.audioSession.type = 'playback'
+    const el = new Audio(SILENCE)
+    el.loop = true
+    el.setAttribute('playsinline', '')
+    void el.play().catch(() => {})
+  } catch {
+    // Not a phone, or the browser has no such feature.
+  }
+}
+
+// ---------------------------------------------------------------- previews
+/** Play one chord right away (piano), so a suggestion can be heard before the loop starts. */
+export async function previewChord(chord: string) {
+  await ensure()
+  const tones = chordMidis(chord).map(freq)
+  const now = Tone.now() + 0.02
+  if (inst!.piano.loaded) inst!.piano.triggerAttackRelease(tones, 1.2, now, 0.7)
+  else inst!.pad.triggerAttackRelease(tones, 1.2, now, 0.8)
+}
+
+/** Play one melody note right away on the chosen lead instrument. */
+export async function previewNote(midi: number, beats = 1) {
+  await ensure()
+  playLead(midi, (60 / song.bpm) * beats * 0.95, Tone.now() + 0.02, 0.9)
 }

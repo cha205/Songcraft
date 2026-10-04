@@ -11,7 +11,7 @@ const song: SharedSong = {
   swing: 0.15,
   kit: 'kit8',
   fill: true,
-  chordInst: 'pad',
+  chordInsts: ['pad', 'strings'],
   bass: 'sub',
   lead: 'bells',
   extras: ['strings', 'pad'],

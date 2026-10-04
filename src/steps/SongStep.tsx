@@ -1,5 +1,6 @@
 import { Coach } from '../components/Guide'
 import { Icon } from '../components/Icon'
+import { Mixer } from '../components/Mixer'
 import type { IconName } from '../components/Icon'
 import { StepHead } from '../components/StepHead'
 import type { LayerKey, PartId, Section, SongLength } from '../data/sections'
@@ -32,6 +33,9 @@ type Props = {
   onNewCover: () => void
   onShare: () => void
   shared: boolean
+  mix: { music: number; voice: number }
+  onMix: (music: number, voice: number) => void
+  hasVocal: boolean
 }
 
 const LAYER_ICONS: [LayerKey, IconName, string][] = [
@@ -52,7 +56,7 @@ export function SongStep(p: Props) {
   const kind = p.length === 'full' ? 'song' : p.length
   return (
     <section className="step">
-      <StepHead icon="vinyl" title={p.shared ? `${p.title || 'A song'}, made with Songmaker` : `Your ${kind} is ready`} />
+      <StepHead icon="vinyl" title={p.shared ? `${p.title || 'A song'}, made with Songcraft` : `Your ${kind} is ready`} />
 
       <div className="card stage-card">
         {p.shared ? (
@@ -63,7 +67,7 @@ export function SongStep(p: Props) {
             </button>
           </div>
         ) : (
-          <Coach icon="vinyl">Give it a name and press play. Songmaker plays every section you arranged, then lets you download or share it.</Coach>
+          <Coach icon="vinyl">Give it a name and press play. Songcraft plays every section you arranged, then lets you download or share it.</Coach>
         )}
         <div className="release">
           <div className={`cover${p.songPlaying ? ' playing' : ''}${p.cover ? ' gem' : ''}`} style={{ backgroundImage: `url(${p.cover ?? `/assets/scenes/genre_${p.genre.id}.webp`})` }}>
@@ -116,6 +120,7 @@ export function SongStep(p: Props) {
           </div>
         </div>
 
+        {p.hasVocal && <Mixer music={p.mix.music} voice={p.mix.voice} onChange={p.onMix} />}
         <span className="mini-label">How it is built</span>
         <div className="sections">
           {p.sections.map((s, i) => (

@@ -1,8 +1,11 @@
+import { useState } from 'react'
+import { previewChord } from '../audio/engine'
 import { Coach } from '../components/Guide'
 import { Icon } from '../components/Icon'
 import { StepHead } from '../components/StepHead'
 import { BASSES, CHORD_INSTS, FEELING_INFO } from '../data/genres'
 import type { BassId, ChordInstId, Feeling, Genre } from '../data/genres'
+import { nextChords } from '../data/harmony'
 
 type Props = {
   part: 'verse' | 'chorus'
@@ -10,8 +13,8 @@ type Props = {
   feeling: Feeling
   chords: string[]
   onChords: (c: string[]) => void
-  chordInst: ChordInstId
-  onChordInst: (c: ChordInstId) => void
+  chordInsts: ChordInstId[]
+  onChordInsts: (c: ChordInstId[]) => void
   bass: BassId
   onBass: (b: BassId) => void
   step: number
@@ -24,6 +27,7 @@ type Props = {
 const isMinor = (c: string) => c.endsWith('m')
 
 export function ChordsStep(p: Props) {
+  const [slot, setSlot] = useState(0)
   const other: Feeling = p.feeling === 'bright' ? 'dark' : 'bright'
   const options = [
     ...p.genre.chords[p.feeling].map((o, i) => ({ ...o, tag: i === 0 ? `Fits ${p.genre.name}` : '' })),
@@ -31,6 +35,14 @@ export function ChordsStep(p: Props) {
   ]
   const bar = p.playing && p.step >= 0 ? Math.floor(p.step / 16) : -1
   const same = (a: string[], b: string[]) => a.join() === b.join()
+  const ideas = nextChords(p.chords, slot, p.genre.id, p.feeling)
+  const pick = (chord: string) => {
+    p.onChords(p.chords.map((c, i) => (i === slot ? chord : c)))
+    if (!p.playing) previewChord(chord)
+    if (slot < 3) setSlot(slot + 1)
+  }
+  const toggleInst = (id: ChordInstId) => p.onChordInsts(p.chordInsts.includes(id) ? p.chordInsts.filter((x) => x !== id) : [...p.chordInsts, id])
+
   return (
     <section className="step">
       <StepHead icon="keys" title={p.part === 'chorus' ? 'Choose the chorus chords' : 'Choose the chords and bass'}>
@@ -40,19 +52,18 @@ export function ChordsStep(p: Props) {
 
       <div className="card stage-card">
         <Coach icon="keys">
-          {p.part === 'chorus'
-            ? 'Choruses often use different chords from the verse, so the song lifts. Press play and pick the set that feels like a big moment.'
-            : 'Press play, then try the other chord sets. Listen for how the bright and dark versions change the mood.'}
+          Build your progression one bar at a time. Tap a bar, then pick from the ideas below: the best fit for {FEELING_INFO[p.feeling].name.toLowerCase()} {p.genre.name} is at
+          the top. Press play to hear every choice with your beat.
         </Coach>
         <div className="chord-row">
           {p.chords.map((c, i) => (
-            <div key={i} className={`chord${isMinor(c) ? ' minor' : ' major'}${bar === i ? ' now' : ''}`}>
+            <button key={i} className={`chord${isMinor(c) ? ' minor' : ' major'}${bar === i ? ' now' : ''}${slot === i ? ' editing' : ''}`} onClick={() => setSlot(i)}>
               <span className="chord-bar">Bar {i + 1}</span>
               <b>{c}</b>
               <span className="chord-mood">
                 <Icon name={isMinor(c) ? 'dark' : 'bright'} size={22} /> {isMinor(c) ? 'Minor, darker' : 'Major, brighter'}
               </span>
-            </div>
+            </button>
           ))}
         </div>
         <div className="big-actions">
@@ -67,47 +78,72 @@ export function ChordsStep(p: Props) {
           )}
         </div>
 
-        <span className="mini-label">Chord sets</span>
-        <div className="prog-list">
-          {options.map((o, i) => (
-            <button key={i} className={`prog-card${same(o.chords, p.chords) ? ' on' : ''}`} onClick={() => p.onChords(o.chords)}>
-              <span className="prog-chords">
-                {o.chords.map((c, j) => (
-                  <span key={j} className={`mini-chord${isMinor(c) ? ' minor' : ' major'}`}>{c}</span>
-                ))}
-              </span>
-              <span className="prog-why">{o.why}</span>
-              {o.tag && <span className="pill">{o.tag}</span>}
+        <div className="ideas">
+          <span className="mini-label">
+            {slot === 0 ? 'Ideas for the first chord' : `Ideas for bar ${slot + 1}, after ${p.chords[slot - 1]}`} · best first
+          </span>
+          <div className="idea-list">
+            {ideas.map((x) => (
+              <button key={x.chord} className={`idea${p.chords[slot] === x.chord ? ' on' : ''}${x.best ? ' best' : ''}`} onClick={() => pick(x.chord)}>
+                <b className={isMinor(x.chord) ? 'minor' : 'major'}>{x.chord}</b>
+                <span>
+                  {x.best && <i className="best-tag">Best fit</i>}
+                  {x.why}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <details className="ready-made">
+          <summary>Or start from a ready-made progression</summary>
+          <div className="prog-list">
+            {options.map((o, i) => (
+              <button key={i} className={`prog-card${same(o.chords, p.chords) ? ' on' : ''}`} onClick={() => p.onChords(o.chords)}>
+                <span className="prog-chords">
+                  {o.chords.map((c, j) => (
+                    <span key={j} className={`mini-chord${isMinor(c) ? ' minor' : ' major'}`}>{c}</span>
+                  ))}
+                </span>
+                <span className="prog-why">{o.why}</span>
+                {o.tag && <span className="pill">{o.tag}</span>}
+              </button>
+            ))}
+          </div>
+        </details>
+
+        <span className="mini-label">Play the chords on · pick one or layer several</span>
+        <div className="inst-row wrap">
+          {CHORD_INSTS.map((c) => (
+            <button key={c.id} className={`inst${p.chordInsts.includes(c.id) ? ' on' : ''}`} onClick={() => toggleInst(c.id)} title={c.why}>
+              <Icon name={c.icon} size={44} />
+              <span>{c.name}</span>
+              {c.fits.includes(p.genre.id) && <small className="fit-tag">Fits {p.genre.name}</small>}
             </button>
           ))}
         </div>
+        <p className="layer-why">
+          {p.chordInsts.length === 0
+            ? 'No chord instrument: only the bass and melody play. Fine for a stripped-back sound.'
+            : CHORD_INSTS.filter((c) => p.chordInsts.includes(c.id))
+                .map((c) => `${c.name}: ${c.why}`)
+                .join(' ')}
+        </p>
 
-        <div className="two-col">
-          <div>
-            <span className="mini-label">Play the chords on</span>
-            <div className="inst-row">
-              {CHORD_INSTS.map((c) => (
-                <button key={c.id} className={`inst${p.chordInst === c.id ? ' on' : ''}`} onClick={() => p.onChordInst(c.id)}>
-                  <Icon name={c.icon} size={44} />
-                  <span>{c.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <span className="mini-label">Bass style</span>
-            <div className="bass-list">
-              {BASSES.map((b) => (
-                <button key={b.id} className={`bass-opt${p.bass === b.id ? ' on' : ''}`} onClick={() => p.onBass(b.id)}>
-                  <Icon name={b.id === 'sub' ? 'subwoofer' : 'bassguitar'} size={36} />
-                  <span>
-                    <b>{b.name}</b>
-                    <small>{b.why}</small>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
+        <span className="mini-label">Bass style</span>
+        <div className="bass-list grid">
+          {BASSES.map((b) => (
+            <button key={b.id} className={`bass-opt${p.bass === b.id ? ' on' : ''}`} onClick={() => p.onBass(b.id)}>
+              <Icon name={b.id === 'sub' ? 'subwoofer' : 'bassguitar'} size={36} />
+              <span>
+                <b>
+                  {b.name}
+                  {b.fits.includes(p.genre.id) && <small className="fit-tag">Fits {p.genre.name}</small>}
+                </b>
+                <small>{b.why}</small>
+              </span>
+            </button>
+          ))}
         </div>
         <div className="stage-foot end">
           <button className="btn green lg" onClick={p.onDone}>

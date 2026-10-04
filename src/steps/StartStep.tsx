@@ -25,7 +25,7 @@ type Props = {
 }
 
 const VOICE: { from: IconName; to: IconName; you: string; we: string; color: string }[] = [
-  { from: 'mic', to: 'drumkit', you: 'You say "boom, tss, pff"', we: 'Songmaker plays real drums', color: 'orange' },
+  { from: 'drumkit', to: 'learn', you: 'You build a beat', we: 'Learn what each drum does, then make it yours', color: 'orange' },
   { from: 'mic', to: 'flute', you: 'You hum a tune', we: 'It plays on piano, flute or guitar', color: 'pink' },
   { from: 'starmic', to: 'vinyl', you: 'You sing your lyrics', we: 'Your voice goes on the song, auto-tuned', color: 'green' },
   { from: 'chat', to: 'headphones', you: 'You say "make it sadder"', we: 'Gemini changes the song and tells you why', color: 'violet' },
@@ -54,7 +54,7 @@ export function StartStep(p: Props) {
         <div className="intro-copy">
           <h1 className="intro-title">Make a real song with your voice</h1>
           <p className="intro-text">
-            You don't need instruments or any experience. Songmaker teaches you how songs are built, one layer at a time, and turns your
+            You don't need instruments or any experience. Songcraft teaches you how songs are built, one layer at a time, and turns your
             humming and beatboxing into real instruments.
           </p>
           <button className="btn yellow xl" onClick={scrollToStyle}>
