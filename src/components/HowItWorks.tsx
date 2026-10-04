@@ -4,14 +4,14 @@ import type { IconName } from './Icon'
 const ROWS: { icon: IconName; you: string; tech: string; how: string; gemini?: boolean }[] = [
   { icon: 'chat', you: 'Talk to your producer', tech: 'Gemini 3.6 Flash (audio)', how: 'Hears what you say on any screen, changes the song (tempo, drums, chords, instruments) and tells you the music reason. Every change can be undone.', gemini: true },
   { icon: 'wand', you: 'Describe your song', tech: 'Gemini 3.1 Pro', how: 'Turns one sentence into three song plans (genre, tempo, drums, chords, instruments) and explains every choice.', gemini: true },
-  { icon: 'kick', you: 'Beatbox the drums', tech: 'Audio analysis in the browser', how: 'Finds each sound by its jump in loudness, then tells "boom", "pff" and "tss" apart by how deep or hissy it is.' },
+  { icon: 'keys', you: 'Build with suggestions', tech: 'Music theory written for this app', how: 'Ranks the next chord and the next melody note for your style and feeling, best first, and says why. Tempo zones and "Fits Rock" tags show what each style usually uses.' },
   { icon: 'headphones', you: 'Ask Gemini to listen', tech: 'Gemini 3.1 Pro (audio)', how: 'Listens to your recording and gives feedback like a music teacher.', gemini: true },
   { icon: 'mic', you: 'Hum and sing', tech: 'Pitch detection (pitchy) + Web Audio', how: 'Measures your hum 90 times a second and snaps each note to the beat and key. Your sung lyrics are recorded in time with the beat, pitch-corrected onto your melody and mixed into the song.' },
   { icon: 'notebook', you: 'Write your lyrics', tech: 'Gemini 3.6 Flash', how: 'You write every word. Gemini checks each line fits your melody and suggests rhymes and ideas. It never writes lines for you.', gemini: true },
-  { icon: 'flute', you: 'Hear real instruments', tech: 'Tone.js + recorded samples', how: 'Plays piano, flute, violin, cello, guitar and seven drum kits from real recordings.' },
+  { icon: 'flute', you: 'Hear real instruments', tech: 'Tone.js + recorded samples', how: 'Plays your notes on recordings of real piano, guitars, sax, trumpet, strings, harp, organ, bass and 14 drum kits.' },
   { icon: 'download', you: 'Download or share', tech: 'Web Audio + song links', how: 'Records the finished song in your browser as a WAV file, or packs the whole song into one link and QR code. Nothing is uploaded.' },
-  { icon: 'vinyl', you: 'Your album cover', tech: 'Gemini 3 Pro Image', how: 'Only if you ask: paints a cover picture for your song from its title, mood and lyrics. It never makes any of the sound.', gemini: true },
-  { icon: 'sparkle', you: 'Every picture and icon', tech: 'Gemini 3 Pro Image', how: 'All illustrations and the 72 icons were generated on Google Cloud in one consistent style.', gemini: true },
+  { icon: 'star', you: 'Final check', tech: 'Gemini 3.6 Flash', how: 'Looks over the whole song like a producer, gives it stars and suggests up to three fixes you can apply with one tap. It also suggests small melody edits.', gemini: true },
+  { icon: 'sparkle', you: 'Pictures', tech: 'Gemini 3 Pro Image', how: 'Made every illustration and icon in one style, and paints a cover for your song only if you ask.', gemini: true },
 ]
 
 /** A one-screen answer to "how does this work?", written for judges and curious users. */

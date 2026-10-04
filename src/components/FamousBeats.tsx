@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { DRUMS } from '../audio/analysis'
 import { FAMOUS_BEATS } from '../data/famousBeats'
 import type { FamousBeat } from '../data/famousBeats'
+import { genreById } from '../data/genres'
 import type { GenreId } from '../data/genres'
 import { Icon } from './Icon'
 
@@ -18,12 +20,15 @@ type Props = {
 
 /** Study famous songs' basic grooves, then try one in your own song and change it. */
 export function FamousBeats(p: Props) {
+  const [all, setAll] = useState(false)
   const tried = FAMOUS_BEATS.find((b) => b.id === p.tried)
+  const name = genreById(p.genre).name
+  const list = all ? FAMOUS_BEATS : FAMOUS_BEATS.filter((b) => b.genre === p.genre)
   return (
     <div className="famous">
       <div className="famous-head">
         <div>
-          <span className="mini-label">Beats from songs you know</span>
+          <span className="mini-label">{all ? 'Beats from songs you know' : `${name} beats from songs you know`}</span>
           <p>Simplified versions of famous drum grooves, played on Songcraft's drums. Try one, hear what makes it work, then change it into your own.</p>
         </div>
         {tried && (
@@ -33,14 +38,14 @@ export function FamousBeats(p: Props) {
         )}
       </div>
       <div className="famous-list">
-        {FAMOUS_BEATS.map((b) => (
+        {list.map((b) => (
           <div key={b.id} className={`famous-card${p.tried === b.id ? ' on' : ''}`}>
             <div className="famous-title">
               <b>{b.song}</b>
               <small>
                 {b.artist} · {b.bpm} BPM
               </small>
-              {b.fits.includes(p.genre) && <span className="fit">Fits your style</span>}
+              {all && <span className="fit">{genreById(b.genre).name}</span>}
             </div>
             <div className="mini-grid" aria-hidden>
               {DRUMS.map((d) => (
@@ -71,7 +76,12 @@ export function FamousBeats(p: Props) {
           </div>
         ))}
       </div>
-      <p className="fine">Only the basic rhythm is rebuilt here. No audio, melody or lyrics from these songs is used.</p>
+      <div className="famous-foot">
+        <button className="link-btn" onClick={() => setAll(!all)}>
+          {all ? `Only show ${name} songs` : 'Show songs from every style'}
+        </button>
+        <p className="fine">Only the basic rhythm is rebuilt here, simplified. No audio, melody or lyrics from these songs is used.</p>
+      </div>
     </div>
   )
 }

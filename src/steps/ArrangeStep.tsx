@@ -1,10 +1,12 @@
+import { useState } from 'react'
+import type { Review } from '../ai'
 import { Coach } from '../components/Guide'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { StepHead } from '../components/StepHead'
 import type { LayerKey, Section } from '../data/sections'
 import { EXTRAS } from '../data/genres'
-import type { ExtraId } from '../data/genres'
+import type { ExtraId, Genre } from '../data/genres'
 
 type Props = {
   extras: ExtraId[]
@@ -18,6 +20,9 @@ type Props = {
   onPlaySong: () => void
   onStop: () => void
   onDone: () => void
+  genre: Genre
+  onReview: () => Promise<Review>
+  onFix: (issue: Review['issues'][number]) => string[]
 }
 
 const ROWS: { key: LayerKey; name: string; icon: IconName }[] = [
@@ -29,6 +34,22 @@ const ROWS: { key: LayerKey; name: string; icon: IconName }[] = [
 ]
 
 export function ArrangeStep(p: Props) {
+  const [review, setReview] = useState<Review | null>(null)
+  const [reviewBusy, setReviewBusy] = useState(false)
+  const [reviewError, setReviewError] = useState('')
+  const [fixed, setFixed] = useState<Record<number, string[]>>({})
+  const check = async () => {
+    setReviewBusy(true)
+    setReviewError('')
+    setFixed({})
+    try {
+      setReview(await p.onReview())
+    } catch (e) {
+      setReviewError((e as Error).message)
+    } finally {
+      setReviewBusy(false)
+    }
+  }
   const toggleExtra = (id: ExtraId) => p.onExtras(p.extras.includes(id) ? p.extras.filter((e) => e !== id) : [...p.extras, id])
   const toggleCell = (i: number, key: LayerKey) =>
     p.onSections(p.sections.map((s, j) => (j === i ? { ...s, layers: { ...s.layers, [key]: !s.layers[key] } } : s)))
@@ -39,7 +60,7 @@ export function ArrangeStep(p: Props) {
       </StepHead>
 
       <div className="card stage-card">
-        <Coach icon="layers">Add one or two instruments, then press play. Experienced producers can switch each part on or off below.</Coach>
+        <Coach icon="layers">Nothing is added for you. Pick one or two instruments (the ones marked {p.genre.name} suit your style), then press play. Switch each part on or off below.</Coach>
         <span className="mini-label">Add instruments</span>
         <div className="extra-grid">
           {EXTRAS.map((e) => {
@@ -53,6 +74,7 @@ export function ArrangeStep(p: Props) {
                   </span>
                 </span>
                 <b>{e.name}</b>
+                {e.fits.includes(p.genre.id) && <span className="fit-tag">Fits {p.genre.name}</span>}
                 <small>{e.why}</small>
               </button>
             )
@@ -105,6 +127,60 @@ export function ArrangeStep(p: Props) {
           </table>
         </div>
         <p className="fine">The chorus always uses your bigger chorus beat. Each column is four bars.</p>
+
+        <div className="final-check">
+          <div className="fc-head">
+            <span className="fc-icon">
+              <Icon name="headphones" size={44} />
+            </span>
+            <div>
+              <b>Final check with Gemini</b>
+              <p>Gemini looks over your whole song like a producer and points out what would make it better. Each fix is one tap, and you choose which to use.</p>
+            </div>
+            <button className="btn violet lg" onClick={check} disabled={reviewBusy}>
+              <Icon name="sparkle" size={26} /> {reviewBusy ? 'Checking your song' : review ? 'Check again' : 'Check my song'}
+            </button>
+          </div>
+          {reviewError && <p className="notice">{reviewError}</p>}
+          {review && (
+            <div className="fc-body">
+              <div className="fc-score" aria-label={`${review.score} out of 5`}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <span key={n} className={n <= review.score ? 'on' : ''}>
+                    <Icon name="star" size={30} />
+                  </span>
+                ))}
+                <p>{review.good}</p>
+              </div>
+              {review.issues.length === 0 && <p className="fine">Nothing to fix. Your song is ready.</p>}
+              {review.issues.map((x, i) => (
+                <div key={i} className={`fc-issue${fixed[i] ? ' done' : ''}`}>
+                  <div>
+                    <b>{x.title}</b>
+                    <p>{x.why}</p>
+                    {fixed[i] && (
+                      <ul className="changes">
+                        {fixed[i].map((c) => (
+                          <li key={c}>
+                            <Icon name="check" size={18} /> {c}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  {Object.keys(x.changes).length > 0 ? (
+                    <button className="btn green" onClick={() => setFixed({ ...fixed, [i]: p.onFix(x) })} disabled={!!fixed[i]}>
+                      {fixed[i] ? 'Fixed' : 'Fix it'}
+                    </button>
+                  ) : (
+                    <span className="fc-yours">Yours to do</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="stage-foot end">
           <button className="btn green lg" onClick={p.onDone}>
             <Icon name="check" size={26} /> Use this arrangement

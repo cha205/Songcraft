@@ -45,8 +45,12 @@ export type ProducerChanges = Partial<{
 }>
 export type ProducerReply = { heard: string; reply: string; part: '' | 'verse' | 'chorus' | 'both'; changes: ProducerChanges; goTo: string; model: string }
 export type Cover = { image: string; model: string }
+/** Up to three small edits to the user's melody. note is the index in their note list; midi or len (or both) change. */
+export type MelodyTips = { good: string; tips: { note: number; midi: number | null; len: number | null; why: string }[]; model: string }
+/** The final check: a star score, one compliment and up to three issues with a ready-made fix. */
+export type Review = { score: number; good: string; issues: { title: string; why: string; part: '' | 'verse' | 'chorus' | 'both'; changes: ProducerChanges }[]; model: string }
 
-async function ask<T>(task: 'blueprint' | 'lyrics' | 'coach' | 'producer' | 'cover', payload: unknown): Promise<T> {
+async function ask<T>(task: 'blueprint' | 'lyrics' | 'coach' | 'producer' | 'cover' | 'melody' | 'review', payload: unknown): Promise<T> {
   const r = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task, payload }) })
   const data = await r.json().catch(() => ({ error: 'Gemini sent an unreadable reply.' }))
   if (!r.ok) throw new Error(data.error || 'Gemini is unavailable right now.')
@@ -64,6 +68,11 @@ export const coachTake = (payload: { kind: 'beat' | 'melody'; samples: Float32Ar
 /** Talk to the producer: send what the user said (audio) or typed, plus the current song, and get back changes. */
 export const askProducer = (p: { samples?: Float32Array; sampleRate?: number; text?: string; state: unknown; step: string }) =>
   ask<ProducerReply>('producer', { text: p.text, state: p.state, step: p.step, audio: p.samples ? toWav16k(p.samples, p.sampleRate ?? 48000) : undefined })
+
+export const melodyTips = (payload: { notes: { start: number; len: number; midi: number }[]; chords: string[]; genre: string; feeling: Feeling; part: string; bpm: number }) =>
+  ask<MelodyTips>('melody', payload)
+
+export const reviewSong = (state: unknown) => ask<Review>('review', { state })
 
 /** Paint an album cover for this song with Gemini's image model. */
 export const makeCover = (p: { title: string; genre: string; feeling: Feeling; topic: string; lyrics: string[] }) => ask<Cover>('cover', p)

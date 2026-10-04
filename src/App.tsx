@@ -6,7 +6,7 @@ import { cleanVocal } from './audio/vocal'
 import { countWords } from './audio/compare'
 import { ALL, duck, play, playRaw, playSong, preload, record, setBpm, setMix, setStepListener, setSwing, setVocal, song, startListening, stop } from './audio/engine'
 import type { Layers, Listening, Recording } from './audio/engine'
-import { askProducer, coachTake, lyricHelp, makeCover, planSong } from './ai'
+import { askProducer, coachTake, lyricHelp, makeCover, melodyTips, planSong, reviewSong } from './ai'
 import type { Blueprint, Coaching, LyricHelp, ProducerChanges, ProducerReply } from './ai'
 import { Dock } from './components/Dock'
 import { HowItWorks } from './components/HowItWorks'
@@ -56,7 +56,8 @@ const takeFor = (v: Vocal, mode: TuneMode) => (mode === 'off' ? v.raw : v[mode])
 
 /** Everything that belongs to one core loop. The verse and the chorus each have their own. */
 type Part = { lesson: Lesson; custom: DrumGrid | null; chords: string[]; myNotes: Note[] | null; tuneChoice: 'example' | 'mine'; lyrics: string[] }
-const emptyPart = (lesson: Lesson, chords: string[]): Part => ({ lesson, custom: null, chords, myNotes: null, tuneChoice: 'example', lyrics: BLANK_LYRICS })
+// A new part starts with no melody: the user builds it (examples are one tap away, never given for free).
+const emptyPart = (lesson: Lesson, chords: string[]): Part => ({ lesson, custom: null, chords, myNotes: [], tuneChoice: 'mine', lyrics: BLANK_LYRICS })
 
 /** The song settings the producer can change, saved before each change so it can be undone. */
 type Snapshot = {
@@ -162,7 +163,6 @@ export default function App() {
   const chorusNotes = useMemo(() => (parts.chorus.tuneChoice === 'mine' && parts.chorus.myNotes ? parts.chorus.myNotes : EXAMPLE_CHORUS[feeling].notes), [parts.chorus, feeling])
   const curGrid = editing === 'chorus' ? chorusGrid : verseGrid
   const curNotes = editing === 'chorus' ? chorusNotes : verseNotes
-  const example = editing === 'chorus' ? EXAMPLE_CHORUS[feeling] : EXAMPLE_TUNES[feeling]
 
   useEffect(() => {
     setStepListener(setPlayStep)
@@ -575,6 +575,25 @@ export default function App() {
     return done
   }
 
+  /** What the final check sees: the whole song, including how much melody and lyrics each part has. */
+  const reviewState = () => {
+    const part = (p: Part, notes: Note[]) => ({ ...p.lesson, ownBeat: !!p.custom, chords: p.chords, melodyNotes: notes.length, lyricLines: p.lyrics.filter(Boolean).length })
+    return {
+      ...producerState(),
+      verse: part(parts.verse, verseNotes),
+      chorus: part(parts.chorus, chorusNotes),
+      sections: sections.map((x) => `${x.name}: ${(Object.keys(x.layers) as (keyof Layers)[]).filter((k) => x.layers[k]).join(', ')}`),
+      vocals: { verse: !!vocals.verse, chorus: !!vocals.chorus },
+    }
+  }
+
+  /** Apply one final-check fix with the same code the producer uses, and play the result. */
+  function fixIssue(issue: { part: '' | 'verse' | 'chorus' | 'both'; changes: ProducerChanges }) {
+    const done = applyProducer({ heard: '', reply: '', part: issue.part, changes: issue.changes, goTo: '', model: '' })
+    if (done.length && !playing && !songPlaying) void startPlay()
+    return done
+  }
+
   function say(text: string) {
     if (!speak || !('speechSynthesis' in window)) return
     const synth = window.speechSynthesis
@@ -814,18 +833,19 @@ export default function App() {
           <TuneStep
             key={editing}
             part={partLabel}
+            genre={genre}
+            feeling={feeling}
+            chords={cur.chords}
+            bpm={bpm}
             notes={curNotes}
-            example={example.notes}
-            exampleTip={example.tip}
-            myNotes={cur.myNotes}
             onEdit={(n) => updatePart({ myNotes: n, tuneChoice: 'mine' })}
-            onChoice={(c) => updatePart({ tuneChoice: c })}
             instrument={lead}
             onInstrument={setLead}
             {...stepProps}
             busy={!!busy}
             onRecord={recordHum}
             onCoach={() => coach('melody')}
+            onTips={() => melodyTips({ notes: curNotes, chords: cur.chords, genre: genre.name, feeling, part: editing, bpm })}
             info={humInfo}
             hasRaw={!!raw.hum}
             onRaw={() => raw.hum && playRaw(raw.hum.samples)}
@@ -876,6 +896,9 @@ export default function App() {
             onPlaySong={playWholeSong}
             onStop={halt}
             onDone={next}
+            genre={genre}
+            onReview={() => reviewSong(reviewState())}
+            onFix={fixIssue}
           />
         )}
 

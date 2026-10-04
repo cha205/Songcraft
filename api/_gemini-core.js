@@ -5,8 +5,8 @@ export const MODELS = ['gemini-3.1-pro-preview', 'gemini-3.6-flash', 'gemini-2.5
 // Album covers: the best image model, with the fast one racing alongside.
 const IMAGE_MODELS = ['gemini-3-pro-image', 'gemini-2.5-flash-image']
 // How long to wait for the best model before accepting the faster model's answer.
-const PREFER_MS = { blueprint: 20000, lyrics: 5000, coach: 25000, cover: 35000 }
-export const TASKS = ['blueprint', 'lyrics', 'coach', 'producer', 'cover']
+const PREFER_MS = { blueprint: 20000, lyrics: 5000, coach: 25000, cover: 35000, melody: 6000, review: 8000 }
+export const TASKS = ['blueprint', 'lyrics', 'coach', 'producer', 'cover', 'melody', 'review']
 
 const GENRES = ['pop', 'hiphop', 'lofi', 'rnb', 'dance', 'rock', 'acoustic', 'latin']
 const KICKS = ['heartbeat', 'four', 'laidback', 'bounce', 'rolling', 'sparse', 'push', 'double', 'none']
@@ -69,6 +69,22 @@ const LYRICS_SCHEMA = {
 }
 
 const STEPS = ['Drums', 'Chords', 'Melody', 'Lyrics', 'Arrange', 'Song']
+const MELODY_NOTES = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84]
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+const nameOf = (m) => NOTE_NAMES[m % 12] + (Math.floor(m / 12) - 1)
+
+// Melody coaching: up to three small edits to the user's own melody, each one applied only if they choose to.
+const MELODY_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    good: str(),
+    tips: {
+      type: 'ARRAY',
+      items: { type: 'OBJECT', properties: { note: { type: 'INTEGER' }, to: str(), len: { type: 'INTEGER' }, why: str() }, required: ['note', 'why'] },
+    },
+  },
+  required: ['good', 'tips'],
+}
 const SETTINGS = ['genre', 'feeling', 'bpm', 'swing', 'kit', 'kick', 'snare', 'hat', 'fill', 'chords', 'chordInst', 'bass', 'lead', 'extras', 'topic']
 
 const PRODUCER_SCHEMA = {
@@ -139,6 +155,41 @@ Reply with:
 Use simple words a 10-year-old understands. Be honest but kind. If the recording is silent or unclear, say so gently in tip.`
 }
 
+const REVIEW_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    score: { type: 'INTEGER' },
+    good: str(),
+    issues: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          title: str(),
+          why: str(),
+          part: str(['verse', 'chorus', 'both']),
+          changes: { type: 'ARRAY', items: { type: 'OBJECT', properties: { setting: str(SETTINGS), value: str() }, required: ['setting', 'value'] } },
+        },
+        required: ['title', 'why', 'changes'],
+      },
+    },
+  },
+  required: ['score', 'good', 'issues'],
+}
+
+function reviewPrompt({ state }) {
+  return `You are a friendly music producer doing a final check of a beginner's song before they share it.
+The song: ${JSON.stringify(state).slice(0, 2500)}
+Look at the whole song: does the tempo suit the style, does the chorus feel bigger than the verse (busier drums, different chords, extra instruments), do the instruments suit the style, is there a melody and lyrics for each part, do the sections build up and come back down?
+Return:
+- score: 1 to 5 stars for how ready it is.
+- good: one sentence about the best thing in the song.
+- issues: up to three of the most useful improvements. Each has a short title, why (one sentence a 10-year-old understands), part (verse, chorus or both), and changes: the exact fix as a list of { setting, value } using only these settings and values:
+  genre, feeling (bright, dark), bpm (60-160), swing (0-0.5), kit (acoustic, kit8, cr78, linn, techno, breakbeat, r8, kit3, kpr77, stark, fm, bongos, break8, break9), kick (heartbeat, four, laidback, bounce, rolling, sparse, push, double, none), snare (backbeat, halftime, ghost, dembow, motown, pickup, none), hat (quarter, eighth, offbeat, sixteenth, trap, shuffle, gallop, none), fill (true, false), chords (four of C Dm Em F G Am, separated by spaces), chordInst (piano, guitar, eguitar, nylon, strings, organ, harp, pad), bass (roots, electric, eighths, octave, sub, none), lead (piano, flute, guitar, eguitar, nylon, violin, sax, trumpet, harp, organ, synth, bells), extras (comma-separated list from strings, guitar, eguitar, organ, arp, flute, pad, or none).
+  If a problem needs the user to do something themselves (write lyrics, add melody notes), give an empty changes list and say what to do in why.
+If the song is already great, return fewer issues. Never write lyrics or melodies for them. Never mention or imitate real songs or artists.`
+}
+
 function producerPrompt({ text, state, step }) {
   const said = text ? `They typed: """${String(text).slice(0, 300)}"""` : 'Listen to the audio: it is what they said to you.'
   return `You are the friendly producer and music teacher inside Songcraft, talking with a beginner (maybe a child) who is building an original song.
@@ -176,6 +227,21 @@ Rules:
 - Never mention or imitate real songs or artists.`
 }
 
+function melodyPrompt({ notes, chords, genre, feeling, part, bpm }) {
+  const list = (Array.isArray(notes) ? notes : []).slice(0, 64)
+    .map((n, i) => `${i + 1}. ${nameOf(n.midi)}, bar ${Math.floor(n.start / 16) + 1} beat ${Math.floor((n.start % 16) / 4) + 1}${n.start % 4 ? ' (between beats)' : ''}, ${n.len / 4} beat${n.len === 4 ? '' : 's'} long`)
+    .join('\n')
+  return `You are a kind songwriting teacher. A beginner wrote this ${part === 'chorus' ? 'chorus' : 'verse'} melody for a ${feeling} ${genre} song at ${bpm} BPM.
+Chords, one per bar: ${(chords || []).join(', ')}. The melody uses C major.
+Their notes in order:
+${list || '(no notes yet)'}
+
+The melody must stay theirs. Suggest at most three small edits that make it more singable, catchier or better fitted to the chords, for example ending the line on a home note, landing a chord note on a strong beat, repeating a short idea, or holding the last note longer.
+Each tip changes ONE existing note: note is its number from the list, to is the new note name (one of C4 D4 E4 F4 G4 A4 B4 C5 D5 E5 F5 G5 A5 B5 C6, or leave it out to keep the pitch), len is a new length in sixteenth steps (1 to 16, or leave it out).
+why: one short sentence a 10-year-old understands. good: one sentence about something specific that already works.
+If the melody is empty, give no tips and say in good that they should add a few notes first. Never mention or imitate real songs.`
+}
+
 function coverPrompt({ title, genre, feeling, topic, lyrics }) {
   const mood = feeling === 'dark' ? 'moody night blues, violets and one glowing accent colour' : 'warm, sunny, saturated colours'
   return `Square album cover art for an original song by a young beginner.
@@ -194,6 +260,18 @@ export function buildRequest(task, payload, model = '') {
     return {
       contents: [{ role: 'user', parts }],
       generationConfig: { temperature: 0.4, responseMimeType: 'application/json', responseSchema: PRODUCER_SCHEMA, thinkingConfig: thinking(model) },
+    }
+  }
+  if (task === 'melody') {
+    return {
+      contents: [{ role: 'user', parts: [{ text: melodyPrompt(payload) }] }],
+      generationConfig: { temperature: 0.5, responseMimeType: 'application/json', responseSchema: MELODY_SCHEMA, thinkingConfig: thinking(model) },
+    }
+  }
+  if (task === 'review') {
+    return {
+      contents: [{ role: 'user', parts: [{ text: reviewPrompt(payload) }] }],
+      generationConfig: { temperature: 0.4, responseMimeType: 'application/json', responseSchema: REVIEW_SCHEMA, thinkingConfig: thinking(model) },
     }
   }
   if (task === 'cover') {
@@ -281,6 +359,25 @@ export function readResult(task, response, model) {
   const text = parts.map((p) => p.text || '').join('') || '{}'
   const r = JSON.parse(text)
   if (task === 'coach') return { good: String(r.good || ''), tip: String(r.tip || ''), model }
+  if (task === 'melody') {
+    const byName = Object.fromEntries(MELODY_NOTES.map((m) => [nameOf(m), m]))
+    const tips = (Array.isArray(r.tips) ? r.tips : []).slice(0, 3).map((t) => ({
+      note: Math.round(Number(t.note)) - 1,
+      midi: byName[String(t.to || '').trim().toUpperCase()] ?? null,
+      len: Number.isFinite(Number(t.len)) && Number(t.len) >= 1 && Number(t.len) <= 16 ? Math.round(Number(t.len)) : null,
+      why: String(t.why || '').slice(0, 220),
+    })).filter((t) => t.note >= 0 && (t.midi !== null || t.len !== null))
+    return { good: String(r.good || '').slice(0, 220), tips, model }
+  }
+  if (task === 'review') {
+    const issues = (Array.isArray(r.issues) ? r.issues : []).slice(0, 4).map((x) => ({
+      title: String(x.title || '').slice(0, 80),
+      why: String(x.why || '').slice(0, 240),
+      part: pick(x.part, ['verse', 'chorus', 'both'], ''),
+      changes: normalizeChanges(x.changes || []),
+    }))
+    return { score: Math.max(1, Math.min(5, Math.round(Number(r.score) || 3))), good: String(r.good || '').slice(0, 240), issues, model }
+  }
   if (task === 'producer') {
     return {
       heard: String(r.heard || '').slice(0, 300),

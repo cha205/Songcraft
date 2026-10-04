@@ -52,10 +52,10 @@ export function StartStep(p: Props) {
     <section className="landing">
       <div className="intro card">
         <div className="intro-copy">
-          <h1 className="intro-title">Make a real song with your voice</h1>
+          <h1 className="intro-title">Make your own song, and learn how songs work</h1>
           <p className="intro-text">
-            You don't need instruments or any experience. Songcraft teaches you how songs are built, one layer at a time, and turns your
-            humming and beatboxing into real instruments.
+            You don't need instruments or any experience. Build the beat, pick the chords, hum or build the melody and sing your own
+            lyrics. Songcraft suggests what fits your style and Gemini coaches you, but every sound in the song comes from you.
           </p>
           <button className="btn yellow xl" onClick={scrollToStyle}>
             Start my song

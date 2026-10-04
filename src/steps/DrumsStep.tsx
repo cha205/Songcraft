@@ -88,7 +88,7 @@ export function DrumsStep(p: Props) {
     <section className="step">
       <StepHead icon="drumkit" title={p.part === 'chorus' ? 'Build the chorus beat' : 'Build the beat'}>
         {p.part === 'chorus'
-          ? 'Your chorus beat starts as a copy of your verse beat with busier hi-hats. Make it bigger, then perform it.'
+          ? 'Your chorus beat starts as a copy of your verse beat with busier hi-hats. Make it bigger and hear the difference.'
           : 'Every song stands on a beat made of three drums. Build yours one drum at a time and hear how each choice changes the feel.'}
       </StepHead>
 
