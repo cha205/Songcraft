@@ -16,8 +16,8 @@ npm run dev
 - Web Speech API (the producer reads its replies aloud)
 - qrcode by Ryan Day (MIT) for song share codes
 - Salamander Grand Piano samples by Alexander Holm (CC BY 3.0), via the Tone.js sample CDN
-- tonejs-instruments samples by Nicholaus Brosowsky (flute, violin, cello, acoustic guitar; CC BY 3.0)
-- Tone.js drum samples (acoustic, 808, CR78, LINN, Techno, breakbeat and R8 kits)
+- tonejs-instruments samples by Nicholaus Brosowsky (flute, violin, cello, acoustic, electric and nylon guitar, saxophone, trumpet, harp, organ, electric bass; CC BY 3.0)
+- Tone.js drum samples (acoustic, 808, CR78, LINN, Techno, breakbeat 8/9/13, R8, Kit3, KPR77, Stark, 4OP-FM and Bongos kits)
 - Baloo 2 and Nunito fonts (Google Fonts)
 - Art and icons generated with Google Vertex AI (`gemini-3-pro-image`), processed with Python (NumPy, Pillow, SciPy), scripts in `tools/`
 - Vercel (hosting and the Gemini serverless function)
