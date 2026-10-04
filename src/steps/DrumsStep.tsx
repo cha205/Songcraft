@@ -157,6 +157,9 @@ export function DrumsStep(p: Props) {
                 genre={p.genre.id}
                 tried={tried?.id ?? null}
                 bpm={p.bpm}
+                playing={p.playing}
+                onPlay={p.onPlay}
+                onStop={p.onStop}
                 onTry={(b) => tryBeat(b.id)}
                 onTempo={(b) => {
                   p.onBpm(b.bpm)

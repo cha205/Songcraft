@@ -11,6 +11,9 @@ type Props = {
   onTempo: (b: FamousBeat) => void
   onBack: () => void
   bpm: number
+  playing: boolean
+  onPlay: () => void
+  onStop: () => void
 }
 
 /** Study famous songs' basic grooves, then try one in your own song and change it. */
@@ -50,9 +53,15 @@ export function FamousBeats(p: Props) {
             </div>
             <p>{b.lesson}</p>
             <div className="famous-actions">
-              <button className="btn violet" onClick={() => p.onTry(b)}>
-                <Icon name="play" size={22} /> {p.tried === b.id ? 'Playing in your song' : 'Try this beat'}
-              </button>
+              {p.tried === b.id && p.playing ? (
+                <button className="btn navy" onClick={p.onStop}>
+                  <Icon name="stop" size={22} /> Stop
+                </button>
+              ) : (
+                <button className="btn violet" onClick={() => (p.tried === b.id ? p.onPlay() : p.onTry(b))}>
+                  <Icon name="play" size={22} /> {p.tried === b.id ? 'Play it again' : 'Try this beat'}
+                </button>
+              )}
               {p.tried === b.id && p.bpm !== b.bpm && (
                 <button className="link-btn" onClick={() => p.onTempo(b)}>
                   Use its tempo and kit ({b.bpm} BPM)
