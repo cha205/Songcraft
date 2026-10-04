@@ -27,7 +27,8 @@ type Props = {
 const VOICE: { from: IconName; to: IconName; you: string; we: string; color: string }[] = [
   { from: 'mic', to: 'drumkit', you: 'You say "boom, tss, pff"', we: 'Songmaker plays real drums', color: 'orange' },
   { from: 'mic', to: 'flute', you: 'You hum a tune', we: 'It plays on piano, flute or guitar', color: 'pink' },
-  { from: 'notebook', to: 'vinyl', you: 'You write a few lines', we: 'They become your lyrics', color: 'violet' },
+  { from: 'starmic', to: 'vinyl', you: 'You sing your lyrics', we: 'Your voice goes on the song, auto-tuned', color: 'green' },
+  { from: 'chat', to: 'headphones', you: 'You say "make it sadder"', we: 'Gemini changes the song and tells you why', color: 'violet' },
 ]
 
 const JOURNEY: { icon: IconName; name: string; text: string }[] = [
