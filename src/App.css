@@ -897,3 +897,8 @@ img.icon.spin { animation: spin 2.4s linear infinite; }
 .mic-button.live .mic-core { background: linear-gradient(180deg, #ff8fb1, #ff4f86 60%); }
 .mic-button.live { cursor: pointer; }
 .record-side .link-btn { margin-top: 10px; text-align: left; }
+
+.drop-overlay { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; background: rgba(20, 14, 60, 0.55); backdrop-filter: blur(3px); pointer-events: none; }
+.drop-card { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 56px; border-radius: 30px; background: #fff; border: 4px dashed var(--mood); box-shadow: 0 30px 80px rgba(10, 6, 40, 0.5); text-align: center; }
+.drop-card b { font-family: var(--display); font-size: 30px; font-weight: 800; color: var(--navy); }
+.drop-card small { font-size: 16px; font-weight: 800; color: var(--navy-2); }

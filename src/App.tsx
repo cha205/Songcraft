@@ -155,6 +155,10 @@ export default function App() {
   const humMic = useRef<Listening | null>(null)
   const humTimer = useRef(0)
   const [humLive, setHumLive] = useState(false)
+  // Drag and drop a hum recording onto any screen. humDrops remounts the Melody step on Fine-tune after a drop.
+  const [dropping, setDropping] = useState(false)
+  const [humDrops, setHumDrops] = useState(0)
+  const dropRef = useRef<(f: File) => void>(() => {})
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [sharedView, setSharedView] = useState(false)
 
@@ -172,6 +176,46 @@ export default function App() {
 
   useEffect(() => {
     setStepListener(setPlayStep)
+  }, [])
+  // Window-level drag and drop, in the capture phase so nothing on the page can swallow it, and so a missed drop
+  // never makes the browser navigate away to the file.
+  useEffect(() => {
+    let depth = 0
+    const isFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files')
+    const enter = (e: DragEvent) => {
+      if (!isFiles(e)) return
+      e.preventDefault()
+      depth++
+      setDropping(true)
+    }
+    const over = (e: DragEvent) => {
+      if (!isFiles(e)) return
+      e.preventDefault()
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+    }
+    const leave = (e: DragEvent) => {
+      if (!isFiles(e)) return
+      depth = Math.max(0, depth - 1)
+      if (!depth) setDropping(false)
+    }
+    const drop = (e: DragEvent) => {
+      if (!isFiles(e)) return
+      e.preventDefault()
+      depth = 0
+      setDropping(false)
+      const f = e.dataTransfer?.files[0]
+      if (f) dropRef.current(f)
+    }
+    window.addEventListener('dragenter', enter, true)
+    window.addEventListener('dragover', over, true)
+    window.addEventListener('dragleave', leave, true)
+    window.addEventListener('drop', drop, true)
+    return () => {
+      window.removeEventListener('dragenter', enter, true)
+      window.removeEventListener('dragover', over, true)
+      window.removeEventListener('dragleave', leave, true)
+      window.removeEventListener('drop', drop, true)
+    }
   }, [])
   // When the tab is hidden the browser pauses the page; on return the audio clock would replay every missed beat at once
   // and freeze the page. So playback stops while the tab is hidden, and the user presses play again on return.
@@ -444,6 +488,14 @@ export default function App() {
       setHumInfo(`Microphone unavailable: ${(e as Error).message}`)
     }
     return false
+  }
+
+  /** A file dropped anywhere: open the Melody step and turn it into the melody. */
+  dropRef.current = async (file: File) => {
+    const audio = file.type.startsWith('audio/') || file.type === 'video/mp4' || /\.(m4a|mp3|wav|ogg|webm|aac|flac|mp4)$/i.test(file.name)
+    if (!genre || !audio) return
+    if (stepIdx !== 3) goTo(3)
+    if (await uploadHum(file)) setHumDrops((n) => n + 1)
   }
 
   /** Turn an uploaded recording of someone humming into the melody. */
@@ -914,7 +966,9 @@ export default function App() {
 
         {stepIdx === 3 && genre && (
           <TuneStep
-            key={editing}
+            key={`${editing}-${humDrops}`}
+            dropping={dropping}
+            startStage={humDrops > 0 ? 'tune' : 'hum'}
             part={partLabel}
             genre={genre}
             feeling={feeling}
@@ -1036,6 +1090,15 @@ export default function App() {
           onUndo={undoProducer}
           suggestions={SUGGESTIONS[stepIdx]}
         />
+      )}
+      {dropping && genre && (
+        <div className="drop-overlay" aria-hidden>
+          <div className="drop-card">
+            <Icon name="wave" size={64} />
+            <b>Drop your hum to make it the melody</b>
+            <small>Any length. Songcraft fits it to your beat and keeps it in key.</small>
+          </div>
+        </div>
       )}
       {howOpen && <HowItWorks onClose={() => setHowOpen(false)} />}
       {shareUrl && <ShareCard url={shareUrl} title={songTitle} onClose={() => setShareUrl(null)} />}

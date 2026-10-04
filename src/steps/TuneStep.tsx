@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { Note } from '../audio/analysis'
 import { previewNote } from '../audio/engine'
 import type { MelodyTips } from '../ai'
@@ -31,6 +31,8 @@ type Props = {
   onUpload: (file: File) => Promise<boolean>
   onFreeHum: () => Promise<boolean>
   humLive: boolean
+  dropping: boolean
+  startStage: 'hum' | 'tune'
   onCoach: () => Promise<{ good: string; tip: string; model: string }>
   onTips: () => Promise<MelodyTips>
   info: string
@@ -52,8 +54,8 @@ const LENGTHS = [
 ]
 
 export function TuneStep(p: Props) {
-  const [stage, setStage] = useState<Stage>('hum')
-  const [dragging, setDragging] = useState(false)
+  const [stage, setStage] = useState<Stage>(p.startStage)
+  const dragging = p.dropping
   const [len, setLen] = useState(4)
   const [before, setBefore] = useState<Note[] | null>(null)
   const [tips, setTips] = useState<MelodyTips | null>(null)
@@ -87,33 +89,6 @@ export function TuneStep(p: Props) {
     p.onEdit(n)
     if (!p.playing) p.onPlay()
   }
-  // Drop a recording anywhere on this step. Without this, a missed drop would make the browser open the file.
-  const { onUpload } = p
-  useEffect(() => {
-    const over = (e: DragEvent) => {
-      if (!e.dataTransfer?.types.includes('Files')) return
-      e.preventDefault()
-      setDragging(true)
-    }
-    const leave = (e: DragEvent) => {
-      if (!e.relatedTarget) setDragging(false)
-    }
-    const drop = async (e: DragEvent) => {
-      if (!e.dataTransfer?.files.length) return
-      e.preventDefault()
-      setDragging(false)
-      const f = e.dataTransfer.files[0]
-      if (await onUpload(f)) setStage('tune')
-    }
-    window.addEventListener('dragover', over)
-    window.addEventListener('dragleave', leave)
-    window.addEventListener('drop', drop)
-    return () => {
-      window.removeEventListener('dragover', over)
-      window.removeEventListener('dragleave', leave)
-      window.removeEventListener('drop', drop)
-    }
-  }, [onUpload])
   const record = async () => {
     if (await p.onRecord()) setStage('tune')
   }
