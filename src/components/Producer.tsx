@@ -21,8 +21,6 @@ type Props = {
   onText: (text: string) => void
   onUndo: (id: number) => void
   suggestions: string[]
-  speak: boolean
-  onSpeak: (on: boolean) => void
 }
 
 /** "Talk to Gemini": a producer you can speak to on every screen. It changes the song and explains why. */
@@ -79,10 +77,6 @@ export function Producer(p: Props) {
           <b>Your producer</b>
           <small>Powered by Gemini</small>
         </div>
-        <button className={`producer-speak${p.speak ? ' on' : ''}`} onClick={() => p.onSpeak(!p.speak)} aria-pressed={p.speak} title={p.speak ? 'Gemini reads replies aloud' : 'Replies are silent'}>
-          <Icon name="speaker" size={24} />
-          {p.speak ? 'Voice on' : 'Voice off'}
-        </button>
         <button className="producer-close" onClick={() => p.onOpen(false)}>
           Close
         </button>

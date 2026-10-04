@@ -1,7 +1,6 @@
 import { DRUMS } from '../audio/analysis'
 import type { Drum, DrumGrid as Grid } from '../audio/analysis'
 import type { CellMark } from '../audio/compare'
-import { SAY } from '../audio/compare'
 import { Icon } from './Icon'
 
 const NAME: Record<Drum, string> = { kick: 'Kick', snare: 'Snare', hat: 'Hi-hat' }
@@ -37,7 +36,6 @@ export function DrumGrid({ grid, bars, step, marks, onToggle }: Props) {
               <Icon name={ICON[d]} size={bars === 1 ? 30 : 24} />
               <span className="row-name">
                 <b>{NAME[d]}</b>
-                <span>say "{SAY[d].toLowerCase()}"</span>
               </span>
             </div>
             {grid[d].slice(0, len).map((on, s) => {

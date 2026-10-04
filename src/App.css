@@ -829,7 +829,12 @@ img.icon.spin { animation: spin 2.4s linear infinite; }
 .ready-made summary { cursor: pointer; font-weight: 800; color: var(--navy-2); margin-bottom: 10px; }
 .inst-row.wrap { flex-wrap: wrap; }
 .inst .fit-tag, .bass-opt .fit-tag { display: block; font-size: 10.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; color: #198a52; }
-.bass-list.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 8px; }
+.bass-list.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; width: 100%; align-self: stretch; box-sizing: border-box; }
+.bass-list.grid .bass-opt { width: 100%; box-sizing: border-box; }
+.bass-list.grid .bass-opt { min-width: 0; white-space: normal; min-height: 78px; }
+.bass-list.grid .bass-opt > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bass-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fit-pill { font-style: normal; padding: 1px 8px; border-radius: 999px; background: #e3f7ec; color: #198a52; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; }
 @media (max-width: 900px) {
   .idea-list, .bass-list.grid { grid-template-columns: 1fr; }
 }
@@ -885,3 +890,6 @@ img.icon.spin { animation: spin 2.4s linear infinite; }
 .upload-hum input { display: none; }
 .upload-hum b { display: block; font-weight: 900; color: var(--navy); }
 .upload-hum small { color: var(--navy-2); font-size: 13.5px; }
+
+.upload-hum.over { border-color: var(--mood); background: var(--mood-soft); transform: scale(1.01); }
+.upload-hum { transition: transform 0.15s, background 0.15s; }

@@ -136,10 +136,10 @@ export function ChordsStep(p: Props) {
             <button key={b.id} className={`bass-opt${p.bass === b.id ? ' on' : ''}`} onClick={() => p.onBass(b.id)}>
               <Icon name={b.id === 'sub' ? 'subwoofer' : 'bassguitar'} size={36} />
               <span>
-                <b>
-                  {b.name}
-                  {b.fits.includes(p.genre.id) && <small className="fit-tag">Fits {p.genre.name}</small>}
-                </b>
+                <span className="bass-name">
+                  <b>{b.name}</b>
+                  {b.fits.includes(p.genre.id) && <i className="fit-pill">Fits {p.genre.name}</i>}
+                </span>
                 <small>{b.why}</small>
               </span>
             </button>

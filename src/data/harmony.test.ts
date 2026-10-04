@@ -19,4 +19,11 @@ describe('chord suggestions', () => {
     expect(ideas.filter((x) => x.best)).toHaveLength(1)
     expect(ideas[0].why.length).toBeGreaterThan(10)
   })
+
+  it('changes its advice depending on the chord before', () => {
+    const afterG = nextChords(['C', 'G'], 2, 'pop', 'bright')[0]
+    const afterF = nextChords(['C', 'F'], 2, 'pop', 'bright')[0]
+    expect(afterG.chord).not.toBe(afterF.chord)
+    expect(afterF.why).toContain('F to')
+  })
 })

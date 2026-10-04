@@ -9,7 +9,7 @@ import type { IconName } from '../components/Icon'
 import { StepHead } from '../components/StepHead'
 import { TempoSlider } from '../components/TempoSlider'
 import { FAMOUS_BEATS, SHOW_FAMOUS_BEATS, famousGrid } from '../data/famousBeats'
-import { HATS, KICKS, KITS, SNARES, beatStory, option } from '../data/genres'
+import { DRUM_FITS, HATS, KICKS, KITS, SNARES, beatStory, option } from '../data/genres'
 import type { Feeling, Genre, KitId, LayerOption } from '../data/genres'
 
 type Stage = 'learn' | 'tune'
@@ -124,7 +124,7 @@ export function DrumsStep(p: Props) {
                         {shown.map((o) => (
                           <button key={o.id} className={`opt${o.id === sel.id ? ' on' : ''}`} onClick={() => p.onLesson({ ...p.lesson, [L.key]: o.id })}>
                             {o.name}
-                            {o.id === recommended[L.key] && <span className="fit">Fits {p.genre.name}</span>}
+                            {(o.id === recommended[L.key] || DRUM_FITS[p.genre.id][L.key].includes(o.id)) && <span className="fit">Fits {p.genre.name}</span>}
                           </button>
                         ))}
                         {extra.length > 0 && !extra.some((o) => o.id === sel.id) && (

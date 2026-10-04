@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Note } from '../audio/analysis'
 import { previewNote } from '../audio/engine'
 import type { MelodyTips } from '../ai'
@@ -38,8 +38,8 @@ type Props = {
 }
 
 const STAGES: { id: Stage; label: string }[] = [
-  { id: 'build', label: 'Build' },
   { id: 'hum', label: 'Hum it' },
+  { id: 'build', label: 'Build' },
   { id: 'tune', label: 'Fine-tune' },
 ]
 const LENGTHS = [
@@ -50,7 +50,8 @@ const LENGTHS = [
 ]
 
 export function TuneStep(p: Props) {
-  const [stage, setStage] = useState<Stage>('build')
+  const [stage, setStage] = useState<Stage>('hum')
+  const [dragging, setDragging] = useState(false)
   const [len, setLen] = useState(4)
   const [before, setBefore] = useState<Note[] | null>(null)
   const [tips, setTips] = useState<MelodyTips | null>(null)
@@ -84,6 +85,33 @@ export function TuneStep(p: Props) {
     p.onEdit(n)
     if (!p.playing) p.onPlay()
   }
+  // Drop a recording anywhere on this step. Without this, a missed drop would make the browser open the file.
+  const { onUpload } = p
+  useEffect(() => {
+    const over = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes('Files')) return
+      e.preventDefault()
+      setDragging(true)
+    }
+    const leave = (e: DragEvent) => {
+      if (!e.relatedTarget) setDragging(false)
+    }
+    const drop = async (e: DragEvent) => {
+      if (!e.dataTransfer?.files.length) return
+      e.preventDefault()
+      setDragging(false)
+      const f = e.dataTransfer.files[0]
+      if (await onUpload(f)) setStage('tune')
+    }
+    window.addEventListener('dragover', over)
+    window.addEventListener('dragleave', leave)
+    window.addEventListener('drop', drop)
+    return () => {
+      window.removeEventListener('dragover', over)
+      window.removeEventListener('dragleave', leave)
+      window.removeEventListener('drop', drop)
+    }
+  }, [onUpload])
   const record = async () => {
     if (await p.onRecord()) setStage('tune')
   }
@@ -234,7 +262,10 @@ export function TuneStep(p: Props) {
 
         {stage === 'hum' && (
           <>
-            <Coach icon="mic">Press the microphone. After four clicks, hum any tune for four bars. Songcraft turns it into notes on the beat and in key.</Coach>
+            <Coach icon="mic">
+              Press the microphone, wait for four clicks, and hum along to your beat for four bars. Or drop a recording of your hum anywhere on this page: any length,
+              Songcraft fits it to your beat.
+            </Coach>
             <div className="record-layout">
               <MicButton busy={p.busy} onClick={record} label="Press to record" />
               <div className="record-side">
@@ -252,7 +283,7 @@ export function TuneStep(p: Props) {
                 </ul>
               </div>
             </div>
-            <label className="upload-hum">
+            <label className={`upload-hum${dragging ? ' over' : ''}`}>
               <input
                 type="file"
                 accept="audio/*,.mp3,.wav,.m4a"
@@ -264,8 +295,8 @@ export function TuneStep(p: Props) {
               />
               <Icon name="wave" size={28} />
               <span>
-                <b>Or upload a recording of your hum</b>
-                <small>mp3, wav or m4a. Hum along to your beat for four bars; Songcraft turns it into notes.</small>
+                <b>{dragging ? 'Drop it here' : 'Or drop a recording of your hum here'}</b>
+                <small>mp3, wav or m4a, any length. Songcraft trims it, fits it to whole bars of your beat and snaps every note in time.</small>
               </span>
             </label>
             {p.info && <p className="notice">{p.info}</p>}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { humToNotes } from './audio/analysis'
 import type { DrumGrid, Note } from './audio/analysis'
 import { autotune } from './audio/autotune'
+import { fitHum } from './audio/fitHum'
 import { cleanVocal } from './audio/vocal'
 import { countWords } from './audio/compare'
 import { ALL, duck, play, playRaw, playSong, preload, record, setBpm, setMix, setStepListener, setSwing, setVocal, song, startListening, stop } from './audio/engine'
@@ -74,6 +75,8 @@ type Snapshot = {
   extras: ExtraId[]
   topic: string
 }
+// Gemini's replies are shown as text; reading them aloud was distracting in a noisy room.
+const SPEAK = false
 const nameOf = (list: { id: string; name: string }[], id: string) => list.find((x) => x.id === id)?.name ?? id
 // Which layer each producer change is heard in, so a change made before that layer plays can say where to hear it.
 const LAYER_OF: Partial<Record<keyof ProducerChanges, keyof Layers>> = { chords: 'chords', feeling: 'chords', genre: 'chords', chordInst: 'chords', bass: 'bass', lead: 'melody', extras: 'extras' }
@@ -142,7 +145,6 @@ export default function App() {
   const [prodOpen, setProdOpen] = useState(false)
   const [prodBusy, setProdBusy] = useState<'listening' | 'thinking' | null>(null)
   const [msgs, setMsgs] = useState<ProducerMsg[]>([])
-  const [speak, setSpeak] = useState(true)
   const [cover, setCover] = useState<{ key: string; image: string; model: string } | null>(null)
   const [coverBusy, setCoverBusy] = useState(false)
   const mic = useRef<Listening | null>(null)
@@ -407,20 +409,17 @@ export default function App() {
         const d = buf.getChannelData(c)
         for (let i = 0; i < d.length; i++) mono[i] += d[i] / buf.numberOfChannels
       }
-      let peak = 0
-      for (let i = 0; i < mono.length; i += 32) peak = Math.max(peak, Math.abs(mono[i]))
-      let start = 0
-      while (start < mono.length && Math.abs(mono[start]) < peak * 0.15) start++
-      const samples = mono.subarray(Math.max(0, start - Math.round(buf.sampleRate * 0.03)))
-      setRaw((r) => ({ ...r, hum: { samples: Float32Array.from(samples), sampleRate: buf.sampleRate, preroll: 0 } }))
-      const res = humToNotes(samples, buf.sampleRate, bpm, 0)
+      setRaw((r) => ({ ...r, hum: { samples: mono, sampleRate: buf.sampleRate, preroll: 0 } }))
+      // A hum recorded on its own is not in time with the beat, so it is fitted: stretched to whole bars, snapped, repeated.
+      const res = fitHum(mono, buf.sampleRate, bpm)
       if (!res.notes.length) {
         setHumInfo('No melody found in that file. A clear "doo doo" hum with little background noise works best.')
         return false
       }
       updatePart({ myNotes: res.notes, tuneChoice: 'mine' })
       setHumInfo(
-        `Songcraft found ${res.notes.length} notes in your recording. ` +
+        `Songcraft fitted your ${res.seconds.toFixed(1)}-second hum to ${res.bars === 1 ? 'one bar' : `${res.bars} bars`} of your beat` +
+          (res.bars < 4 ? ' and repeated it to fill the loop. ' : '. ') +
           (res.shift ? `You sang in roughly ${res.hummedKey} major, so it moved the melody to C to match your chords.` : 'Your melody already matches the chords.'),
       )
       await startPlay()
@@ -644,7 +643,7 @@ export default function App() {
   }
 
   function say(text: string) {
-    if (!speak || !('speechSynthesis' in window)) return
+    if (!('speechSynthesis' in window) || !SPEAK) return
     const synth = window.speechSynthesis
     synth.cancel()
     const u = new SpeechSynthesisUtterance(text)
@@ -999,8 +998,6 @@ export default function App() {
           onText={(text) => talkToProducer({ text })}
           onUndo={undoProducer}
           suggestions={SUGGESTIONS[stepIdx]}
-          speak={speak}
-          onSpeak={setSpeak}
         />
       )}
       {howOpen && <HowItWorks onClose={() => setHowOpen(false)} />}

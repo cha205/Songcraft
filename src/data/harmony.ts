@@ -41,6 +41,32 @@ const FEEL: Record<string, string> = {
   Am: 'Am is the sad twin of C: almost the same notes, a darker mood.',
 }
 
+// Why a specific move works, so every suggestion is explained relative to the chord before it.
+const MOVE_WHY: Record<string, string> = {
+  'G>C': 'After G, C feels like coming home: the strongest move in music.',
+  'G>Am': 'G to Am is a surprise: it sounds like home, turned sad.',
+  'G>F': 'G down to F is a laid-back rock move.',
+  'G>Em': 'G to Em softens the energy.',
+  'F>G': 'F to G climbs up and builds tension for what comes next.',
+  'F>C': 'F back to C feels warm and settled, like an "amen".',
+  'F>Em': 'F to Em steps down gently, a favourite in lo-fi and R&B.',
+  'F>Am': 'F to Am drifts into a more thoughtful mood.',
+  'Am>F': 'Am to F lifts a sad line into something hopeful.',
+  'Am>G': 'Am to G walks down, a classic pop and rock move.',
+  'Am>Dm': 'Am to Dm stays in the minor world: moody and calm.',
+  'Am>Em': 'Am to Em keeps it dark and floating.',
+  'C>G': 'C to G opens the song up, the start of countless hits.',
+  'C>F': 'C to F feels bright and open.',
+  'C>Am': 'C to Am keeps almost the same notes but turns the mood darker.',
+  'C>Dm': 'C to Dm takes a soft, jazzy step up.',
+  'Dm>G': 'Dm to G is the classic jazz move that pulls toward C.',
+  'Dm>C': 'Dm to C settles down softly.',
+  'Dm>Am': 'Dm to Am sinks deeper into a sad mood.',
+  'Em>Am': 'Em to Am is a gentle step down into a sadder place.',
+  'Em>F': 'Em to F rises by just one note: a soft lift.',
+  'Em>Dm': 'Em to Dm keeps stepping down, relaxed and dreamy.',
+}
+
 export type ChordIdea = { chord: string; score: number; why: string; best: boolean }
 
 /**
@@ -55,9 +81,12 @@ export function nextChords(chosen: string[], index: number, genre: GenreId, feel
     const minor = c.endsWith('m')
     if (prev) score += feeling === 'dark' ? (minor ? 1.5 : 0) : minor ? 0 : 1.5
     if (index === 3 && chosen[0]) score += (MOVE[c]?.[chosen[0]] ?? 4) * 0.4
-    let why = FEEL[c]
+    // Chords already used earlier in the progression rank lower, so the progression keeps moving.
+    const used = chosen.slice(0, index).filter((x) => x === c).length
+    if (!(genre === 'hiphop' && c === prev)) score -= used * 2.5
+    let why = (prev && MOVE_WHY[`${prev}>${c}`]) || FEEL[c]
     if (prev && c === prev) why = `Staying on ${c} for another bar gives the words room, common in ${genre === 'hiphop' ? 'hip-hop' : 'slower songs'}.`
-    else if (index === 3 && chosen[0] && (MOVE[c]?.[chosen[0]] ?? 0) >= 9) why = `${FEEL[c]} It leads straight back to ${chosen[0]}, so the loop repeats smoothly.`
+    else if (index === 3 && chosen[0] && (MOVE[c]?.[chosen[0]] ?? 0) >= 9) why = `${why} It also leads straight back to ${chosen[0]}, so the loop repeats smoothly.`
     return { chord: c, score, why, best: false }
   }).sort((a, b) => b.score - a.score)
   ideas[0].best = true
