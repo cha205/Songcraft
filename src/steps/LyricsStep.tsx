@@ -1,6 +1,6 @@
 import { BARS } from '../audio/analysis'
 import type { Note } from '../audio/analysis'
-import { Coach } from '../components/Guide'
+import { Coach, GeminiCoach } from '../components/Guide'
 import { Icon } from '../components/Icon'
 import { StepHead } from '../components/StepHead'
 import { LYRIC_PROMPTS } from '../data/genres'
@@ -25,6 +25,12 @@ type Props = {
   onPlay: () => void
   onStop: () => void
   onDone: () => void
+  busy: boolean
+  hasVocal: boolean
+  onSing: () => void
+  onRemoveVocal: () => void
+  onCoachVocal: () => Promise<{ good: string; tip: string; model: string }>
+  singInfo: string
 }
 
 export function LyricsStep(p: Props) {
@@ -92,6 +98,32 @@ export function LyricsStep(p: Props) {
             )
           })}
         </div>
+        <div className={`sing-box${p.hasVocal ? ' done' : ''}`}>
+          <span className="sing-icon">
+            <Icon name="starmic" size={56} />
+          </span>
+          <div className="sing-text">
+            <b>{p.hasVocal ? `Your voice is in the ${p.part}` : 'Now sing it yourself'}</b>
+            <p>
+              {p.hasVocal
+                ? 'It plays with the music from now on, and in the finished song.'
+                : 'Put on headphones and sing your lines over the beat. The melody plays quietly to guide you, and your lines show up on screen. Your real voice goes into the song.'}
+            </p>
+            {p.singInfo && <p className="fine">{p.singInfo}</p>}
+          </div>
+          <div className="sing-actions">
+            <button className={`btn ${p.hasVocal ? 'white' : 'red'} lg`} onClick={p.onSing} disabled={p.busy}>
+              <Icon name="mic" size={26} /> {p.hasVocal ? 'Sing it again' : 'Sing my lyrics'}
+            </button>
+            {p.hasVocal && (
+              <button className="btn white" onClick={p.onRemoveVocal} disabled={p.busy}>
+                Remove my voice
+              </button>
+            )}
+          </div>
+          {p.hasVocal && <GeminiCoach key={p.singInfo} onCoach={p.onCoachVocal} />}
+        </div>
+
         <div className="stage-foot">
           {p.playing ? (
             <button className="btn navy lg" onClick={p.onStop}>

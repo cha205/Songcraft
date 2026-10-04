@@ -6,7 +6,7 @@ const ROWS: { icon: IconName; you: string; tech: string; how: string; gemini?: b
   { icon: 'wand', you: 'Describe your song', tech: 'Gemini 3.1 Pro', how: 'Turns one sentence into three song plans (genre, tempo, drums, chords, instruments) and explains every choice.', gemini: true },
   { icon: 'kick', you: 'Beatbox the drums', tech: 'Audio analysis in the browser', how: 'Finds each sound by its jump in loudness, then tells "boom", "pff" and "tss" apart by how deep or hissy it is.' },
   { icon: 'headphones', you: 'Ask Gemini to listen', tech: 'Gemini 3.1 Pro (audio)', how: 'Listens to your recording and gives feedback like a music teacher.', gemini: true },
-  { icon: 'mic', you: 'Hum the melody', tech: 'Pitch detection (pitchy)', how: 'Measures your pitch 90 times a second, then snaps each note to the beat and into the key.' },
+  { icon: 'mic', you: 'Hum and sing', tech: 'Pitch detection (pitchy) + Web Audio', how: 'Measures your hum 90 times a second and snaps each note to the beat and key. Your sung lyrics are recorded in time with the beat and mixed into the song.' },
   { icon: 'notebook', you: 'Write lyrics', tech: 'Gemini 3.1 Pro', how: 'Writes lines that fit the number of notes in each bar of your melody.', gemini: true },
   { icon: 'flute', you: 'Hear real instruments', tech: 'Tone.js + recorded samples', how: 'Plays piano, flute, violin, cello, guitar and seven drum kits from real recordings.' },
   { icon: 'download', you: 'Download or share', tech: 'Web Audio + song links', how: 'Records the finished song in your browser as a WAV file, or packs the whole song into one link and QR code. Nothing is uploaded.' },

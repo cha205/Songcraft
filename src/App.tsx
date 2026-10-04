@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { beatboxToHits, hitsToGrid, humToNotes } from './audio/analysis'
 import type { Drum, DrumGrid, Note } from './audio/analysis'
 import { countWords } from './audio/compare'
-import { ALL, duck, play, playRaw, playSong, preload, record, setBpm, setStepListener, setSwing, song, startListening, stop } from './audio/engine'
+import { ALL, duck, play, playRaw, playSong, preload, record, setBpm, setStepListener, setSwing, setVocal, song, startListening, stop } from './audio/engine'
 import type { Layers, Listening, Recording } from './audio/engine'
 import { askProducer, coachTake, makeCover, planSong, writeLyrics } from './ai'
 import type { Blueprint, Coaching, ProducerChanges, ProducerReply } from './ai'
@@ -112,12 +112,14 @@ export default function App() {
   const [lyricTip, setLyricTip] = useState('')
   const [playing, setPlaying] = useState(false)
   const [playStep, setPlayStep] = useState(-1)
-  const [busy, setBusy] = useState<'drums' | 'hum' | null>(null)
+  const [busy, setBusy] = useState<'drums' | 'hum' | 'sing' | null>(null)
   const [count, setCount] = useState('')
   const [click, setClick] = useState(false)
   const [raw, setRaw] = useState<{ drums?: Recording; hum?: Recording }>({})
   const [drumInfo, setDrumInfo] = useState('')
   const [humInfo, setHumInfo] = useState('')
+  const [vocals, setVocals] = useState<Record<PartId, Recording | null>>({ verse: null, chorus: null })
+  const [singInfo, setSingInfo] = useState('')
   const [section, setSection] = useState(-1)
   const [songPlaying, setSongPlaying] = useState(false)
   const [wavUrl, setWavUrl] = useState<string | null>(null)
@@ -251,6 +253,7 @@ export default function App() {
     setDrumInfo('')
     setHumInfo('')
     setLyricTip('')
+    clearVocals()
   }
 
   function chooseLength(l: SongLength) {
@@ -321,12 +324,12 @@ export default function App() {
     }
   }
 
-  async function coach(kind: 'beat' | 'melody'): Promise<Coaching> {
-    const rec = kind === 'beat' ? raw.drums : raw.hum
+  async function coach(kind: 'beat' | 'melody' | 'vocal'): Promise<Coaching> {
+    const rec = kind === 'beat' ? raw.drums : kind === 'vocal' ? vocals[editing] : raw.hum
     if (!rec || !genre) throw new Error('Record a take first.')
     const l = cur.lesson
     const target = `kick on ${countWords(option(KICKS, l.kick).steps)}; snare on ${countWords(option(SNARES, l.snare).steps)}; hi-hat on ${countWords(option(HATS, l.hat).steps)}`
-    return coachTake({ kind, samples: rec.samples, sampleRate: rec.sampleRate, bpm, genre: genre.name, feeling, target })
+    return coachTake({ kind: kind === 'beat' ? 'beat' : 'melody', samples: rec.samples, sampleRate: rec.sampleRate, bpm, genre: genre.name, feeling, target })
   }
 
   async function recordDrums(): Promise<DrumGrid | null> {
@@ -380,6 +383,45 @@ export default function App() {
       setBusy(null)
       setCount('')
     }
+  }
+
+  function clearVocals() {
+    setVocal('verse', null)
+    setVocal('chorus', null)
+    setVocals({ verse: null, chorus: null })
+    setSingInfo('')
+  }
+
+  /** Record the user singing their lyrics over the loop. The take becomes part of the song. */
+  async function recordSing() {
+    halt()
+    setBusy('sing')
+    setSingInfo('')
+    try {
+      const rec = await record('sing', { click, onCount: setCount })
+      let peak = 0
+      for (let i = 0; i < rec.samples.length; i += 64) peak = Math.max(peak, Math.abs(rec.samples[i]))
+      if (peak < 0.02) {
+        setSingInfo('Songmaker could not hear you. Move closer to the microphone and try again.')
+        return
+      }
+      setVocal(editing, rec)
+      setVocals((v) => ({ ...v, [editing]: rec }))
+      setSingInfo(`Your voice is now part of the ${editing}. Listen back, or sing it again until you like it.`)
+      await startPlay()
+    } catch (e) {
+      setSingInfo(`Microphone unavailable: ${(e as Error).message}`)
+    } finally {
+      setBusy(null)
+      setCount('')
+    }
+  }
+
+  function removeVocal() {
+    halt()
+    setVocal(editing, null)
+    setVocals((v) => ({ ...v, [editing]: null }))
+    setSingInfo('')
   }
 
   async function playWholeSong() {
@@ -612,6 +654,7 @@ export default function App() {
 
   function restart() {
     halt()
+    clearVocals()
     setSharedView(false)
     if (location.hash) history.replaceState(null, '', location.pathname)
     setGenreId(null)
@@ -792,6 +835,12 @@ export default function App() {
             {...stepProps}
             doneLabel={verseThenChorus ? 'Next: make the chorus' : 'Finish this part'}
             onDone={next}
+            busy={!!busy}
+            hasVocal={!!vocals[editing]}
+            onSing={recordSing}
+            onRemoveVocal={removeVocal}
+            onCoachVocal={() => coach('vocal')}
+            singInfo={singInfo}
           />
         )}
 
@@ -861,7 +910,7 @@ export default function App() {
       )}
       {howOpen && <HowItWorks onClose={() => setHowOpen(false)} />}
       {shareUrl && <ShareCard url={shareUrl} title={songTitle} onClose={() => setShareUrl(null)} />}
-      <RecordOverlay busy={busy} count={count} step={playStep} />
+      <RecordOverlay busy={busy} count={count} step={playStep} lyrics={cur.lyrics} />
     </div>
   )
 }

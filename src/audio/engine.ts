@@ -38,7 +38,7 @@ let section = -1
 let onSection: (i: number) => void = () => {}
 let songDone: (() => void) | null = null
 
-type Mode = 'play' | 'rec-drums' | 'rec-hum'
+type Mode = 'play' | 'rec-drums' | 'rec-hum' | 'rec-sing'
 let mode: Mode = 'play'
 let clickWhileRecording = false
 let onStep: (step: number) => void = () => {}
@@ -232,8 +232,16 @@ function tick(time: number, step: number) {
   const chords = isChorus ? song.chorusChords : song.verseChords
   const hasDrums = grid.kick.some(Boolean) || grid.snare.some(Boolean) || grid.hat.some(Boolean)
   const barLen = stepSeconds(bpm) * 16
+  const voiceRec = mode === 'rec-hum' || mode === 'rec-sing'
+  const vocal = vocals[isChorus ? 'chorus' : 'verse']
 
-  if (mode === 'rec-hum' || L?.drums) {
+  // The singer's own recorded voice, lined up with the start of the loop.
+  if (vocal && mode === 'play' && L?.melody && step === 0) {
+    vocal.player.playbackRate = bpm / vocal.bpm
+    vocal.player.start(time, vocal.offset)
+  }
+
+  if (voiceRec || L?.drums) {
     if (song.fill && step >= 60 && mode === 'play') {
       // A fill at the end of the loop: four quick snares lead into the next section.
       if (step === 60) hitDrum('kick', time)
@@ -244,21 +252,23 @@ function tick(time: number, step: number) {
       if (grid.hat[step]) hitDrum('hat', time, step % 4 === 0 ? 1 : 0.7)
     }
   }
-  const wantClick = mode !== 'play' && (clickWhileRecording || (mode === 'rec-hum' && !hasDrums))
+  const wantClick = mode !== 'play' && (clickWhileRecording || (voiceRec && !hasDrums))
   if (wantClick && step % 4 === 0) inst.click.triggerAttackRelease('32n', time)
 
-  if (L?.melody) {
+  if (L?.melody || mode === 'rec-sing') {
+    // While singing, the melody plays quietly as a guide. Under a recorded voice it steps back.
+    const vel = mode === 'rec-sing' ? 0.5 : vocal ? 0.4 : 1
     for (const n of notes) {
       if (n.start !== step) continue
       const dur = n.len * stepSeconds(bpm) * 0.95
-      playLead(n.midi, dur, time)
-      if (L.double) inst.bells.triggerAttackRelease(freq(n.midi + 12), dur, time, 0.35)
+      playLead(n.midi, dur, time, vel)
+      if (L?.double) inst.bells.triggerAttackRelease(freq(n.midi + 12), dur, time, 0.35)
     }
   }
   if (chords) {
     const chord = chords[Math.floor(step / 16)]
     // While humming, the chords play quietly so they guide the voice without leaking into the mic much.
-    if (mode === 'rec-hum') {
+    if (voiceRec) {
       if (step % 16 === 0) inst.pad.triggerAttackRelease(chordMidis(chord).map(freq), '1m', time, 0.4)
     } else if (L?.chords) {
       playChords(song.chordInst, chord, step, time, barLen, 1)
@@ -316,6 +326,7 @@ export async function play() {
 
 export function stop() {
   Tone.getTransport().stop()
+  for (const v of Object.values(vocals)) v?.player.stop()
   arrangement = null
   songDone?.()
   onStep(-1)
@@ -446,7 +457,7 @@ export type Recording = { samples: Float32Array; sampleRate: number; preroll: nu
  * `onCount` gets 4,3,2,1 during the count-in, then "rec" with the bar number while recording.
  */
 export async function record(
-  kind: 'drums' | 'hum',
+  kind: 'drums' | 'hum' | 'sing',
   opts: { click: boolean; onCount: (label: string) => void },
 ): Promise<Recording> {
   await ensure()
@@ -478,7 +489,7 @@ export async function record(
   }
   for (let b = 0; b < BARS; b++) draw.schedule(() => opts.onCount(`rec ${b + 1}`), recStart + b * 4 * beat)
 
-  mode = kind === 'drums' ? 'rec-drums' : 'rec-hum'
+  mode = kind === 'drums' ? 'rec-drums' : kind === 'hum' ? 'rec-hum' : 'rec-sing'
   clickWhileRecording = opts.click
   const t = Tone.getTransport()
   t.position = 0
@@ -556,4 +567,31 @@ export async function startListening(): Promise<Listening> {
 export function duck(on: boolean) {
   const out = Tone.getDestination()
   if (!out.mute) out.volume.rampTo(on ? -14 : 0, 0.25)
+}
+
+// ---------------------------------------------------------------- recorded vocals
+type Vocal = { player: Tone.Player; offset: number; bpm: number }
+const vocals: Partial<Record<'verse' | 'chorus', Vocal>> = {}
+let vocalIn: Tone.Filter | null = null
+
+/** A small vocal chain: cut the rumble, even out the volume, add a little of the song's reverb. */
+function vocalChain() {
+  if (!vocalIn) {
+    vocalIn = new Tone.Filter(110, 'highpass')
+    const comp = new Tone.Compressor(-24, 3)
+    const vol = new Tone.Volume(4)
+    vocalIn.chain(comp, vol)
+    vol.toDestination()
+    if (inst) vol.connect(inst.reverb)
+  }
+  return vocalIn
+}
+
+/** Put a sung take into the verse or chorus (or remove it with null). It plays whenever that part's melody plays. */
+export function setVocal(part: 'verse' | 'chorus', rec: Recording | null) {
+  vocals[part]?.player.dispose()
+  delete vocals[part]
+  if (!rec) return
+  const player = new Tone.Player(Tone.ToneAudioBuffer.fromArray(rec.samples)).connect(vocalChain())
+  vocals[part] = { player, offset: rec.preroll, bpm: song.bpm }
 }

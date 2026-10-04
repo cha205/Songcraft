@@ -729,3 +729,17 @@ img.icon.spin { animation: spin 2.4s linear infinite; }
 .share-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .shared-banner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
 .shared-banner .coach { flex: 1; min-width: 260px; margin: 0; }
+
+.sing-box { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px 16px; margin-top: 20px; padding: 16px 18px; border-radius: 24px; background: linear-gradient(160deg, #fff0f4, #fff); border: 3px solid #ffd3df; }
+.sing-box.done { background: linear-gradient(160deg, #eafaf1, #fff); border-color: #c4eed6; }
+.sing-icon { width: 72px; height: 72px; border-radius: 22px; display: grid; place-items: center; background: #fff; box-shadow: 0 4px 0 rgba(14, 12, 48, 0.08); }
+.sing-text b { display: block; font-family: var(--display); font-size: 22px; font-weight: 800; line-height: 1.15; }
+.sing-text p { margin: 4px 0 0; font-size: 15px; line-height: 1.45; color: var(--navy-2); }
+.sing-actions { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.sing-box .gemini-coach { grid-column: 1 / -1; margin-top: 0; }
+.sing-line { display: block; max-width: 640px; margin-top: 10px; padding: 10px 18px; border-radius: 18px; background: rgba(255, 255, 255, 0.95); color: var(--navy); font-family: var(--display); font-size: 30px; font-weight: 800; line-height: 1.2; text-align: center; }
+.sing-line.next { font-size: 20px; color: var(--navy-2); }
+@media (max-width: 900px) {
+  .sing-box { grid-template-columns: 1fr; }
+  .sing-icon { display: none; }
+}
