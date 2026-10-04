@@ -1,6 +1,6 @@
-// Vercel serverless function: POST /api/gemini { task: 'blueprint' | 'lyrics', payload }.
+// Vercel serverless function: POST /api/gemini { task: 'blueprint' | 'lyrics' | 'coach', payload }.
 // Uses a Gemini API key from the server environment (GEMINI_API_KEY), so the key never reaches the browser.
-import { MODELS, buildRequest, readResult } from './_gemini-core.js'
+import { callBest } from './_gemini-core.js'
 
 export async function POST(request) {
   const key = process.env.GEMINI_API_KEY
@@ -12,26 +12,18 @@ export async function POST(request) {
     return Response.json({ error: 'Bad request.' }, { status: 400 })
   }
   const { task, payload } = body || {}
-  if (task !== 'blueprint' && task !== 'lyrics') return Response.json({ error: 'Unknown task.' }, { status: 400 })
-
-  let last = ''
-  // Best model first; fall back when a model is busy or unavailable.
-  for (const model of MODELS) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify(buildRequest(task, payload)),
+  if (task !== 'blueprint' && task !== 'lyrics' && task !== 'coach') return Response.json({ error: 'Unknown task.' }, { status: 400 })
+  try {
+    const result = await callBest(task, payload, async (model, req) => {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify(req),
+      })
+      return { ok: r.ok, status: r.status, json: r.ok ? await r.json() : null }
     })
-    if (r.ok) {
-      try {
-        return Response.json(readResult(task, await r.json(), model))
-      } catch {
-        last = 'Gemini returned an unreadable answer.'
-        continue
-      }
-    }
-    last = `${model}: ${r.status}`
-    if (![404, 429, 500, 503].includes(r.status)) break
+    return Response.json(result)
+  } catch (e) {
+    return Response.json({ error: `Gemini is unavailable right now (${e.message}).` }, { status: 502 })
   }
-  return Response.json({ error: `Gemini is unavailable right now (${last}).` }, { status: 502 })
 }

@@ -1,21 +1,27 @@
 import { useState } from 'react'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
+import type { Blueprint } from '../ai'
+import { LENGTHS } from '../data/sections'
+import type { SongLength } from '../data/sections'
 import { FEELING_INFO, GENRES, genreById } from '../data/genres'
 import type { Feeling, GenreId } from '../data/genres'
-
-export type Plan = { title: string; topic: string; reasons: { part: string; why: string }[]; model: string }
 
 type Props = {
   genre: GenreId | null
   feeling: Feeling
+  length: SongLength
   onGenre: (g: GenreId) => void
   onFeeling: (f: Feeling) => void
+  onLength: (l: SongLength) => void
   onStart: () => void
   onDescribe: (text: string) => Promise<void>
   aiBusy: boolean
   aiError: string
-  plan: Plan | null
+  plans: Blueprint[] | null
+  planModel: string
+  planPick: number
+  onPickPlan: (i: number) => void
 }
 
 const VOICE: { from: IconName; to: IconName; you: string; we: string; color: string }[] = [
@@ -29,8 +35,8 @@ const JOURNEY: { icon: IconName; name: string; text: string }[] = [
   { icon: 'drumkit', name: 'Drums', text: 'Build a beat, drum by drum' },
   { icon: 'keys', name: 'Chords', text: 'Choose the harmony and bass' },
   { icon: 'mic', name: 'Melody', text: 'Hum your own tune' },
-  { icon: 'timeline', name: 'Arrange', text: 'Add instruments and parts' },
   { icon: 'notebook', name: 'Lyrics', text: 'Write words, with Gemini' },
+  { icon: 'timeline', name: 'Arrange', text: 'Join verse and chorus into a song' },
   { icon: 'vinyl', name: 'Song', text: 'Play it and download it' },
 ]
 
@@ -127,35 +133,57 @@ export function StartStep(p: Props) {
               <i />
               <i />
             </span>
-            Gemini is planning your song. This takes about 15 seconds.
+            Gemini is writing three different plans for your song. This takes about 20 seconds.
           </div>
         )}
         {p.aiError && <p className="notice">{p.aiError}</p>}
-        {p.plan && g && !p.aiBusy && (
-          <div className="plan">
-            <div className="plan-title">
-              <Icon name="sparkle" size={30} />
-              <span>
-                <small>Gemini's plan</small>
-                <b>
-                  "{p.plan.title}", a {FEELING_INFO[p.feeling].name.toLowerCase()} {g.name} song
-                </b>
-              </span>
+        {p.plans && !p.aiBusy && (
+          <>
+            <p className="plans-head">Pick the plan you like. You can change anything later.</p>
+            <div className="plans">
+              {p.plans.map((pl, i) => {
+                const pg = genreById(pl.genre)
+                return (
+                  <button key={i} className={`plan-card${p.planPick === i ? ' on' : ''}`} onClick={() => p.onPickPlan(i)}>
+                    <div className="plan-art" style={{ backgroundImage: `url(/assets/scenes/genre_${pl.genre}.webp)` }}>
+                      <span className="plan-num">Plan {i + 1}</span>
+                    </div>
+                    <div className="plan-body">
+                      <span className="plan-tags">
+                        <Icon name={pg.icon} size={26} /> {FEELING_INFO[pl.feeling].name} {pg.name} · {pl.bpm} BPM
+                      </span>
+                      <b>{pl.summary}</b>
+                      <small>Working title: {pl.title}</small>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
-            <ul className="plan-reasons">
-              {p.plan.reasons.map((r) => (
-                <li key={r.part}>
-                  <span className="pill">{r.part}</span> {r.why}
-                </li>
-              ))}
-            </ul>
-            <div className="plan-foot">
-              <span className="fine">Planned by {p.plan.model}. You can change anything later.</span>
-              <button className="btn yellow lg" onClick={p.onStart}>
-                Start with this plan
-              </button>
-            </div>
-          </div>
+            {p.planPick >= 0 && p.plans[p.planPick] && (
+              <div className="plan">
+                <div className="plan-title">
+                  <Icon name="sparkle" size={30} />
+                  <span>
+                    <small>Why Gemini chose this</small>
+                    <b>Plan {p.planPick + 1}</b>
+                  </span>
+                </div>
+                <ul className="plan-reasons">
+                  {p.plans[p.planPick].reasons.map((r) => (
+                    <li key={r.part}>
+                      <span className="pill">{r.part}</span> {r.why}
+                    </li>
+                  ))}
+                </ul>
+                <div className="plan-foot">
+                  <span className="fine">Planned by {p.planModel}. Choose the length below, or start now.</span>
+                  <button className="btn yellow lg" onClick={p.onStart}>
+                    Start with plan {p.planPick + 1}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -193,6 +221,21 @@ export function StartStep(p: Props) {
               <span>
                 <b>{FEELING_INFO[f].name}</b>
                 <small>{FEELING_INFO[f].text}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="feel-copy">
+          <b>How long?</b>
+          <span>Make one short part, or a verse and a chorus joined into a full song.</span>
+        </div>
+        <div className="length-switch">
+          {LENGTHS.map((l) => (
+            <button key={l.id} className={`length${p.length === l.id ? ' on' : ''}`} onClick={() => p.onLength(l.id)}>
+              <Icon name={l.id === 'full' ? 'timeline' : l.id === 'chorus' ? 'star' : 'loop'} size={40} />
+              <span>
+                <b>{l.name}</b>
+                <small>{l.detail}</small>
               </span>
             </button>
           ))}

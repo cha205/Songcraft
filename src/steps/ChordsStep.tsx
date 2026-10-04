@@ -5,6 +5,7 @@ import { BASSES, CHORD_INSTS, FEELING_INFO } from '../data/genres'
 import type { BassId, ChordInstId, Feeling, Genre } from '../data/genres'
 
 type Props = {
+  part: 'verse' | 'chorus'
   genre: Genre
   feeling: Feeling
   chords: string[]
@@ -32,13 +33,17 @@ export function ChordsStep(p: Props) {
   const same = (a: string[], b: string[]) => a.join() === b.join()
   return (
     <section className="step">
-      <StepHead icon="keys" title="Choose the chords and bass">
+      <StepHead icon="keys" title={p.part === 'chorus' ? 'Choose the chorus chords' : 'Choose the chords and bass'}>
         Chords are groups of notes played together. They decide whether a song sounds happy or sad. The bass plays the lowest note of
         each chord and ties it to the drums.
       </StepHead>
 
       <div className="card stage-card">
-        <Coach icon="keys">Press play, then try the other chord sets. Listen for how the bright and dark versions change the mood.</Coach>
+        <Coach icon="keys">
+          {p.part === 'chorus'
+            ? 'Choruses often use different chords from the verse, so the song lifts. Press play and pick the set that feels like a big moment.'
+            : 'Press play, then try the other chord sets. Listen for how the bright and dark versions change the mood.'}
+        </Coach>
         <div className="chord-row">
           {p.chords.map((c, i) => (
             <div key={i} className={`chord${isMinor(c) ? ' minor' : ' major'}${bar === i ? ' now' : ''}`}>

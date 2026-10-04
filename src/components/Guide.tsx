@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
@@ -40,5 +41,49 @@ export function MicButton({ busy, onClick, label }: { busy: boolean; onClick: ()
       </span>
       <span className="mic-label">{busy ? 'Recording' : label}</span>
     </button>
+  )
+}
+
+type Coaching = { good: string; tip: string; model: string }
+
+/** "Ask Gemini to listen": sends the last recording to Gemini and shows teacher-style feedback. */
+export function GeminiCoach({ onCoach }: { onCoach: () => Promise<Coaching> }) {
+  const [busy, setBusy] = useState(false)
+  const [res, setRes] = useState<Coaching | null>(null)
+  const [err, setErr] = useState('')
+  const ask = async () => {
+    setBusy(true)
+    setErr('')
+    try {
+      setRes(await onCoach())
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="gemini-coach">
+      {!res && (
+        <button className="btn violet" onClick={ask} disabled={busy}>
+          <Icon name="headphones" size={26} /> {busy ? 'Gemini is listening' : 'Ask Gemini to listen'}
+        </button>
+      )}
+      {busy && <span className="fine">Gemini is listening to your recording. About 10 seconds.</span>}
+      {err && <p className="notice">{err}</p>}
+      {res && (
+        <div className="coach-result">
+          <span className="coach-badge">
+            <Icon name="headphones" size={30} /> Gemini listened
+          </span>
+          <p>
+            <b>What went well:</b> {res.good}
+          </p>
+          <p>
+            <b>Try this next:</b> {res.tip}
+          </p>
+        </div>
+      )}
+    </div>
   )
 }

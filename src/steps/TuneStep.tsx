@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import type { Note } from '../audio/analysis'
-import { Coach, MicButton, StageTabs } from '../components/Guide'
+import { Coach, GeminiCoach, MicButton, StageTabs } from '../components/Guide'
 import { Icon } from '../components/Icon'
 import { PianoRoll } from '../components/PianoRoll'
 import { StepHead } from '../components/StepHead'
-import { EXAMPLE_TUNES, LEADS } from '../data/genres'
-import type { Feeling, LeadId } from '../data/genres'
+import { LEADS } from '../data/genres'
+import type { LeadId } from '../data/genres'
 
 type Stage = 'listen' | 'record' | 'review'
 
 type Props = {
-  feeling: Feeling
+  part: 'verse' | 'chorus'
+  exampleTip: string
   notes: Note[]
   example: Note[]
   myNotes: Note[] | null
@@ -24,6 +25,7 @@ type Props = {
   onStop: () => void
   busy: boolean
   onRecord: () => Promise<boolean>
+  onCoach: () => Promise<{ good: string; tip: string; model: string }>
   info: string
   hasRaw: boolean
   onRaw: () => void
@@ -69,7 +71,7 @@ export function TuneStep(p: Props) {
 
   return (
     <section className="step">
-      <StepHead icon="mic" title="Hum the melody">
+      <StepHead icon="mic" title={p.part === 'chorus' ? 'Hum the chorus melody' : 'Hum the melody'}>
         The melody is the part of a song people sing along to. You hum it, and Songmaker plays it on a real instrument such as piano,
         flute or violin, on the beat and in key.
       </StepHead>
@@ -86,7 +88,7 @@ export function TuneStep(p: Props) {
             </div>
             <PianoRoll notes={p.example} step={p.playing ? p.step : -1} fit />
             <p className="note">
-              <Icon name="bulb" size={22} /> {EXAMPLE_TUNES[p.feeling].tip}
+              <Icon name="bulb" size={22} /> {p.exampleTip}
             </p>
             <div className="stage-foot">
               <button className="link-btn" onClick={() => { p.onChoice('example'); p.onDone() }}>
@@ -127,6 +129,7 @@ export function TuneStep(p: Props) {
           <>
             <Coach icon="sparkle">Songmaker turned your humming into notes. Play it back, pick an instrument, then keep it or try again.</Coach>
             {p.info && <p className="notice good">{p.info}</p>}
+            <GeminiCoach key={p.info} onCoach={p.onCoach} />
             <div className="big-actions top">
               {playBtn('Play my melody')}
               {instrumentPicker}

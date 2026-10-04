@@ -8,6 +8,8 @@ import type { Feeling } from '../data/genres'
 import { syllables } from '../lyrics'
 
 type Props = {
+  part: 'verse' | 'chorus'
+  doneLabel: string
   feeling: Feeling
   notes: Note[]
   lyrics: string[]
@@ -29,12 +31,16 @@ export function LyricsStep(p: Props) {
   const bar = p.playing && p.step >= 0 ? Math.floor(p.step / 16) : -1
   return (
     <section className="step">
-      <StepHead icon="notebook" title="Write the lyrics">
+      <StepHead icon="notebook" title={p.part === 'chorus' ? 'Write the chorus lyrics' : 'Write the verse lyrics'}>
         Lyrics come last because they have to fit the melody. The rule of thumb is one syllable for each note.
       </StepHead>
 
       <div className="card stage-card">
-        <Coach icon="notebook">Write one short line for each bar, or let Gemini draft them for you. The counter turns green when a line fits the notes.</Coach>
+        <Coach icon="notebook">
+          {p.part === 'chorus'
+            ? 'Chorus lyrics repeat one short, catchy phrase. Write one line per bar, or let Gemini draft them.'
+            : 'Verse lyrics tell the story. Write one short line per bar, or let Gemini draft them. The counter turns green when a line fits.'}
+        </Coach>
         <div className="ai-lyrics">
           <input className="input" value={p.topic} maxLength={80} placeholder="What is your song about?" onChange={(e) => p.onTopic(e.target.value)} aria-label="Song topic" />
           <button className="btn violet lg" onClick={p.onWrite} disabled={p.aiBusy}>
@@ -97,7 +103,7 @@ export function LyricsStep(p: Props) {
             </button>
           )}
           <button className="btn green lg" onClick={p.onDone}>
-            <Icon name="check" size={26} /> Finish my song
+            <Icon name="check" size={26} /> {p.doneLabel}
           </button>
         </div>
       </div>

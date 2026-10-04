@@ -21,8 +21,10 @@ export const song = {
   chorus: emptyDrums(),
   fill: false,
   part: 'verse' as 'verse' | 'chorus',
-  notes: [] as Note[],
-  chords: null as string[] | null,
+  verseNotes: [] as Note[],
+  chorusNotes: [] as Note[],
+  verseChords: null as string[] | null,
+  chorusChords: null as string[] | null,
   lead: 'piano' as LeadId,
   chordInst: 'pad' as ChordInstId,
   bass: 'roots' as BassId,
@@ -208,7 +210,7 @@ function playChords(kind: ChordInstId | ExtraId, chord: string, step: number, ti
 
 function tick(time: number, step: number) {
   if (!inst) return
-  const { notes, chords, bpm } = song
+  const { bpm } = song
 
   if (arrangement && step === 0) {
     section++
@@ -223,7 +225,11 @@ function tick(time: number, step: number) {
   }
   const plan = arrangement ? arrangement[section] : null
   const L = mode === 'play' ? (plan ? plan.layers : song.layers) : null
-  const grid = plan ? (plan.kind === 'chorus' ? song.chorus : song.verse) : mode === 'play' && song.part === 'chorus' ? song.chorus : song.verse
+  // Each section plays its own part: the verse and the chorus have separate beats, chords and melodies.
+  const isChorus = (plan ? plan.kind : song.part) === 'chorus'
+  const grid = isChorus ? song.chorus : song.verse
+  const notes = isChorus ? song.chorusNotes : song.verseNotes
+  const chords = isChorus ? song.chorusChords : song.verseChords
   const hasDrums = grid.kick.some(Boolean) || grid.snare.some(Boolean) || grid.hat.some(Boolean)
   const barLen = stepSeconds(bpm) * 16
 

@@ -4,7 +4,7 @@ import { DRUMS } from '../audio/analysis'
 import { SAY, beatTips, compareBeats } from '../audio/compare'
 import { BeatClock } from '../components/BeatClock'
 import { DrumGrid } from '../components/DrumGrid'
-import { Coach, MicButton, StageTabs } from '../components/Guide'
+import { Coach, GeminiCoach, MicButton, StageTabs } from '../components/Guide'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { StepHead } from '../components/StepHead'
@@ -15,6 +15,7 @@ type Stage = 'learn' | 'record' | 'tune'
 export type Lesson = { kick: string; snare: string; hat: string }
 
 type Props = {
+  part: 'verse' | 'chorus'
   genre: Genre
   feeling: Feeling
   bpm: number
@@ -27,18 +28,15 @@ type Props = {
   onLesson: (l: Lesson) => void
   beat: Grid
   onCustom: (g: Grid | null) => void
-  chorusOn: boolean
-  onChorusOn: (v: boolean) => void
   fill: boolean
   onFill: (v: boolean) => void
-  part: 'verse' | 'chorus'
-  onPart: (p: 'verse' | 'chorus') => void
   step: number
   playing: boolean
   onPlay: () => void
   onStop: () => void
   busy: boolean
   onRecord: () => Promise<Grid | null>
+  onCoach: () => Promise<{ good: string; tip: string; model: string }>
   info: string
   hasRaw: boolean
   onRaw: () => void
@@ -85,8 +83,10 @@ export function DrumsStep(p: Props) {
 
   return (
     <section className="step">
-      <StepHead icon="drumkit" title="Build the beat">
-        Every song stands on a beat made of three drums. Build yours one drum at a time and hear how each choice changes the feel.
+      <StepHead icon="drumkit" title={p.part === 'chorus' ? 'Build the chorus beat' : 'Build the beat'}>
+        {p.part === 'chorus'
+          ? 'Your chorus beat starts as a copy of your verse beat with busier hi-hats. Make it bigger, then perform it.'
+          : 'Every song stands on a beat made of three drums. Build yours one drum at a time and hear how each choice changes the feel.'}
       </StepHead>
 
       <div className="card stage-card">
@@ -192,6 +192,7 @@ export function DrumsStep(p: Props) {
                   <span className="lg extra">Extra</span>
                 </div>
                 <DrumGrid grid={take} bars={4} step={-1} marks={result.marks} />
+                <GeminiCoach key={p.info} onCoach={p.onCoach} />
               </>
             )}
             {p.info && <p className="notice">{p.info}</p>}
@@ -223,13 +224,7 @@ export function DrumsStep(p: Props) {
         {stage === 'tune' && (
           <>
             <Coach icon="knob">Polish your beat. Change the speed, the feel and the drum sounds, and give the chorus extra energy.</Coach>
-            <div className="big-actions top">
-              {playBtn(p.part === 'chorus' ? 'Play chorus beat' : 'Play verse beat')}
-              <div className="seg" role="group" aria-label="Song part">
-                <button className={p.part === 'verse' ? 'on' : ''} onClick={() => p.onPart('verse')}>Verse</button>
-                <button className={p.part === 'chorus' ? 'on' : ''} onClick={() => p.onPart('chorus')}>Chorus</button>
-              </div>
-            </div>
+            <div className="big-actions top">{playBtn(p.part === 'chorus' ? 'Play the chorus beat' : 'Play the beat')}</div>
             <div className="tune-grid">
               <div className="tune-card">
                 <div className="tune-head">
@@ -264,14 +259,6 @@ export function DrumsStep(p: Props) {
                 <p>The same pattern sounds completely different on another kit. Producers choose sounds as carefully as rhythms.</p>
               </div>
               <label className="tune-card toggle">
-                <input type="checkbox" checked={p.chorusOn} onChange={(e) => p.onChorusOn(e.target.checked)} />
-                <Icon name="loop" size={34} />
-                <span>
-                  <b>Bigger chorus</b>
-                  <small>The chorus gets busier hi-hats, so it feels bigger than the verse.</small>
-                </span>
-              </label>
-              <label className="tune-card toggle">
                 <input type="checkbox" checked={p.fill} onChange={(e) => p.onFill(e.target.checked)} />
                 <Icon name="snare" size={34} />
                 <span>
@@ -282,11 +269,11 @@ export function DrumsStep(p: Props) {
             </div>
             <details className="edit">
               <summary>Edit every step by hand (for experienced producers)</summary>
-              <DrumGrid grid={p.beat} bars={4} step={p.playing && p.part === 'verse' ? p.step : -1} onToggle={(d, s) => p.onCustom({ ...p.beat, [d]: p.beat[d].map((v, i) => (i === s ? !v : v)) })} />
+              <DrumGrid grid={p.beat} bars={4} step={p.playing ? p.step : -1} onToggle={(d, s) => p.onCustom({ ...p.beat, [d]: p.beat[d].map((v, i) => (i === s ? !v : v)) })} />
             </details>
             <div className="stage-foot end">
               <button className="btn green lg" onClick={p.onDone}>
-                <Icon name="check" size={26} /> Use this beat
+                <Icon name="check" size={26} /> Use this {p.part === 'chorus' ? 'chorus beat' : 'beat'}
               </button>
             </div>
           </>

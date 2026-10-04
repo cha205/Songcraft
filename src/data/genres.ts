@@ -249,6 +249,32 @@ export const EXAMPLE_TUNES: Record<Feeling, { notes: Note[]; tip: string }> = {
   },
 }
 
+/** Original example chorus melodies: higher and more repetitive than the verse, so they feel like a hook. */
+export const EXAMPLE_CHORUS: Record<Feeling, { notes: Note[]; tip: string }> = {
+  bright: {
+    tip: 'Choruses sit higher than verses and repeat one short phrase, so people remember them.',
+    notes: n([
+      [0, 2, 72], [2, 2, 72], [4, 2, 74], [6, 2, 72], [8, 4, 76], [12, 4, 74],
+      [16, 2, 72], [18, 2, 72], [20, 2, 74], [22, 2, 72], [24, 8, 69],
+      [32, 2, 72], [34, 2, 72], [36, 2, 74], [38, 2, 72], [40, 4, 76], [44, 4, 79],
+      [48, 2, 77], [50, 2, 76], [52, 4, 74], [56, 8, 72],
+    ]),
+  },
+  dark: {
+    tip: 'Choruses sit higher than verses and repeat one phrase, which makes even a sad song stick.',
+    notes: n([
+      [0, 4, 72], [4, 2, 71], [6, 2, 69], [8, 8, 69],
+      [16, 4, 71], [20, 2, 69], [22, 2, 67], [24, 8, 64],
+      [32, 4, 72], [36, 2, 71], [38, 2, 69], [40, 4, 74], [44, 4, 72],
+      [48, 4, 71], [52, 4, 67], [56, 8, 69],
+    ]),
+  },
+}
+
+const BUSIER_HAT: Record<string, string> = { quarter: 'eighth', eighth: 'sixteenth', offbeat: 'sixteenth', sixteenth: 'sixteenth', trap: 'trap' }
+/** Default chorus drums: the verse pattern with busier hi-hats, so the chorus feels bigger. */
+export const chorusLesson = (l: { kick: string; snare: string; hat: string }) => ({ ...l, hat: BUSIER_HAT[l.hat] ?? l.hat })
+
 export const LYRIC_PROMPTS: Record<Feeling, string[]> = {
   bright: ['The best day of your summer', 'Someone you love walking in', 'Winning the big game'],
   dark: ['Someone you miss', 'A place you cannot go back to', 'Proving everyone wrong'],
