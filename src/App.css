@@ -721,3 +721,11 @@ img.icon.spin { animation: spin 2.4s linear infinite; }
   .producer-fab > span:last-child { display: none; }
   .producer { right: 8px; left: 8px; width: auto; bottom: 92px; max-height: calc(100vh - 110px); }
 }
+
+.share-modal { width: min(560px, 100%); text-align: center; }
+.share-modal .modal-lead { max-width: 420px; margin-left: auto; margin-right: auto; }
+.share-qr { display: grid; place-items: center; margin: 0 auto 18px; width: min(420px, 100%); aspect-ratio: 1; padding: 14px; border-radius: 24px; background: #fff; box-shadow: inset 0 0 0 3px var(--line); }
+.share-qr img { width: 100%; height: 100%; image-rendering: pixelated; }
+.share-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.shared-banner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.shared-banner .coach { flex: 1; min-width: 260px; margin: 0; }

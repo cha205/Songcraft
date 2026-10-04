@@ -30,6 +30,8 @@ type Props = {
   coverBusy: boolean
   coverStale: boolean
   onNewCover: () => void
+  onShare: () => void
+  shared: boolean
 }
 
 const LAYER_ICONS: [LayerKey, IconName, string][] = [
@@ -50,10 +52,19 @@ export function SongStep(p: Props) {
   const kind = p.length === 'full' ? 'song' : p.length
   return (
     <section className="step">
-      <StepHead icon="vinyl" title={`Your ${kind} is ready`} />
+      <StepHead icon="vinyl" title={p.shared ? `${p.title || 'A song'}, made with Songmaker` : `Your ${kind} is ready`} />
 
       <div className="card stage-card">
-        <Coach icon="vinyl">Give it a name and press play. Songmaker plays every section you arranged, then lets you download it.</Coach>
+        {p.shared ? (
+          <div className="shared-banner">
+            <Coach icon="headphones">Someone made this {kind} with their voice. Press play to listen, then make your own.</Coach>
+            <button className="btn green lg" onClick={p.onRestart}>
+              <Icon name="sparkle" size={26} /> Make my own song
+            </button>
+          </div>
+        ) : (
+          <Coach icon="vinyl">Give it a name and press play. Songmaker plays every section you arranged, then lets you download or share it.</Coach>
+        )}
         <div className="release">
           <div className={`cover${p.songPlaying ? ' playing' : ''}${p.cover ? ' gem' : ''}`} style={{ backgroundImage: `url(${p.cover ?? `/assets/scenes/genre_${p.genre.id}.webp`})` }}>
             <div className="cover-shade" />
@@ -91,6 +102,9 @@ export function SongStep(p: Props) {
                   <Icon name="sparkle" size={24} /> {p.cover ? 'Paint a new cover' : 'Ask Gemini for a cover'}
                 </button>
               )}
+              <button className="btn navy lg" onClick={p.onShare}>
+                <Icon name="speaker" size={26} /> Share with a QR code
+              </button>
               {p.wavUrl ? (
                 <a className="btn yellow xl" href={p.wavUrl} download={fileName}>
                   <Icon name="download" size={32} /> Download

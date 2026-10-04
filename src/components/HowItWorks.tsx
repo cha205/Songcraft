@@ -9,7 +9,7 @@ const ROWS: { icon: IconName; you: string; tech: string; how: string; gemini?: b
   { icon: 'mic', you: 'Hum the melody', tech: 'Pitch detection (pitchy)', how: 'Measures your pitch 90 times a second, then snaps each note to the beat and into the key.' },
   { icon: 'notebook', you: 'Write lyrics', tech: 'Gemini 3.1 Pro', how: 'Writes lines that fit the number of notes in each bar of your melody.', gemini: true },
   { icon: 'flute', you: 'Hear real instruments', tech: 'Tone.js + recorded samples', how: 'Plays piano, flute, violin, cello, guitar and seven drum kits from real recordings.' },
-  { icon: 'download', you: 'Download your song', tech: 'Web Audio', how: 'Records the finished song inside your browser and saves it as a WAV file.' },
+  { icon: 'download', you: 'Download or share', tech: 'Web Audio + song links', how: 'Records the finished song in your browser as a WAV file, or packs the whole song into one link and QR code. Nothing is uploaded.' },
   { icon: 'vinyl', you: 'Your album cover', tech: 'Gemini 3 Pro Image', how: 'Paints a one-of-a-kind cover for your song from its title, mood and lyrics.', gemini: true },
   { icon: 'sparkle', you: 'Every picture and icon', tech: 'Gemini 3 Pro Image', how: 'All illustrations and the 72 icons were generated on Google Cloud in one consistent style.', gemini: true },
 ]

@@ -14,6 +14,9 @@ import { PartBar } from './components/PartBar'
 import { Producer } from './components/Producer'
 import type { ProducerMsg } from './components/Producer'
 import { RecordOverlay } from './components/RecordOverlay'
+import { ShareCard } from './components/ShareCard'
+import { decodeSong, encodeSong } from './data/share'
+import type { SharedPart } from './data/share'
 import { sectionsFor } from './data/sections'
 import type { PartId, Section, SongLength } from './data/sections'
 import { BASSES, CHORD_INSTS, EXAMPLE_CHORUS, EXAMPLE_TUNES, EXTRAS, FEELING_INFO, HATS, KICKS, KITS, LEADS, SNARES, chorusLesson, genreById, gridFrom, option } from './data/genres'
@@ -129,6 +132,8 @@ export default function App() {
   const micTimer = useRef(0)
   const undos = useRef(new Map<number, Snapshot>())
   const msgId = useRef(0)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [sharedView, setSharedView] = useState(false)
 
   const genre = genreId ? genreById(genreId) : null
   const sections = customSections ?? sectionsFor(length, bpm)
@@ -145,6 +150,43 @@ export default function App() {
 
   useEffect(() => {
     setStepListener(setPlayStep)
+  }, [])
+  // Opened from a shared link: rebuild the song from the link and go straight to the player.
+  useEffect(() => {
+    const code = location.hash.startsWith('#song=') ? location.hash.slice(6) : ''
+    if (!code) return
+    decodeSong(code)
+      .then((s) => {
+        const part = (p: SharedPart, kind: PartId): Part => ({
+          lesson: kind === 'verse' ? { kick: 'heartbeat', snare: 'backbeat', hat: 'eighth' } : { kick: 'heartbeat', snare: 'backbeat', hat: 'sixteenth' },
+          custom: p.grid,
+          chords: p.chords.length === 4 ? p.chords : ['C', 'G', 'Am', 'F'],
+          myNotes: p.notes,
+          tuneChoice: 'mine',
+          lyrics: p.lyrics,
+        })
+        setGenreId(s.genre)
+        setFeeling(s.feeling)
+        setLength(s.length)
+        setBpmState(s.bpm)
+        setSwingState(s.swing)
+        setKit(s.kit)
+        setFill(s.fill)
+        setChordInst(s.chordInst)
+        setBass(s.bass)
+        setLead(s.lead)
+        setExtras(s.extras)
+        setSongTitle(s.title)
+        setTopic(s.topic)
+        setParts({ verse: part(s.parts.verse, 'verse'), chorus: part(s.parts.chorus, 'chorus') })
+        setChorusStarted(true)
+        setEditing(s.length === 'chorus' ? 'chorus' : 'verse')
+        const base = sectionsFor(s.length, s.bpm)
+        setCustomSections(s.sections && s.sections.length === base.length ? base.map((sec, i) => ({ ...sec, layers: s.sections![i] })) : null)
+        setSharedView(true)
+        setStepIdx(6)
+      })
+      .catch(() => history.replaceState(null, '', location.pathname))
   }, [])
   useEffect(() => {
     Object.assign(song, {
@@ -545,8 +587,33 @@ export default function App() {
     setMsgs((m) => m.map((x) => (x.id === id ? { ...x, undo: 'done' } : x)))
   }
 
+  async function openShare() {
+    if (!genreId) return
+    const shared = (p: Part, notes: typeof verseNotes, grid: typeof verseGrid): SharedPart => ({ grid, notes, chords: p.chords, lyrics: p.lyrics })
+    const code = await encodeSong({
+      genre: genreId,
+      feeling,
+      length,
+      bpm,
+      swing,
+      kit,
+      fill,
+      chordInst,
+      bass,
+      lead,
+      extras,
+      title: songTitle,
+      topic,
+      parts: { verse: shared(parts.verse, verseNotes, verseGrid), chorus: shared(parts.chorus, chorusNotes, chorusGrid) },
+      sections: customSections ? customSections.map((x) => x.layers) : null,
+    })
+    setShareUrl(`${location.origin}/#song=${code}`)
+  }
+
   function restart() {
     halt()
+    setSharedView(false)
+    if (location.hash) history.replaceState(null, '', location.pathname)
     setGenreId(null)
     setPlans(null)
     setPlanPick(-1)
@@ -769,6 +836,8 @@ export default function App() {
             coverBusy={coverBusy}
             coverStale={!!cover && cover.key !== coverKey}
             onNewCover={paintCover}
+            onShare={openShare}
+            shared={sharedView}
           />
         )}
       </main>
@@ -791,6 +860,7 @@ export default function App() {
         />
       )}
       {howOpen && <HowItWorks onClose={() => setHowOpen(false)} />}
+      {shareUrl && <ShareCard url={shareUrl} title={songTitle} onClose={() => setShareUrl(null)} />}
       <RecordOverlay busy={busy} count={count} step={playStep} />
     </div>
   )
