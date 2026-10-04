@@ -38,8 +38,8 @@ export function ChordsStep(p: Props) {
   const ideas = nextChords(p.chords, slot, p.genre.id, p.feeling)
   const pick = (chord: string) => {
     p.onChords(p.chords.map((c, i) => (i === slot ? chord : c)))
+    // Stay on this bar so every idea can be tried; the user taps the next bar when they are happy.
     if (!p.playing) previewChord(chord)
-    if (slot < 3) setSlot(slot + 1)
   }
   const toggleInst = (id: ChordInstId) => p.onChordInsts(p.chordInsts.includes(id) ? p.chordInsts.filter((x) => x !== id) : [...p.chordInsts, id])
 
@@ -52,7 +52,7 @@ export function ChordsStep(p: Props) {
 
       <div className="card stage-card">
         <Coach icon="keys">
-          Build your progression one bar at a time. Tap a bar, then pick from the ideas below: the best fit for {FEELING_INFO[p.feeling].name.toLowerCase()} {p.genre.name} is at
+          Build your progression one bar at a time. Tap a bar, then try the ideas below as often as you like: the best fit for {FEELING_INFO[p.feeling].name.toLowerCase()} {p.genre.name} is at
           the top. Press play to hear every choice with your beat.
         </Coach>
         <div className="chord-row">

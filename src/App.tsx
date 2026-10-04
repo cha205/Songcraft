@@ -167,6 +167,19 @@ export default function App() {
   useEffect(() => {
     setStepListener(setPlayStep)
   }, [])
+  // When the tab is hidden the browser pauses the page; on return the audio clock would replay every missed beat at once
+  // and freeze the page. So playback stops while the tab is hidden, and the user presses play again on return.
+  useEffect(() => {
+    const onHide = () => {
+      if (!document.hidden) return
+      stop()
+      setPlaying(false)
+      setSongPlaying(false)
+      window.speechSynthesis?.cancel()
+    }
+    document.addEventListener('visibilitychange', onHide)
+    return () => document.removeEventListener('visibilitychange', onHide)
+  }, [])
   // Opened from a shared link: rebuild the song from the link and go straight to the player.
   useEffect(() => {
     const code = location.hash.startsWith('#song=') ? location.hash.slice(6) : ''
