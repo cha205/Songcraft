@@ -22,6 +22,6 @@ npm run dev
 - tonejs-instruments samples by Nicholaus Brosowsky (CC BY 3.0)
 - Tone.js drum samples
 - Baloo 2 and Nunito fonts (Google Fonts)
-- Python (NumPy, Pillow, SciPy) for processing the generated art, scripts in `tools/`
+- Python (NumPy, Pillow, SciPy) for processing the generated art
 - Vercel (hosting and the Gemini serverless function)
 - Claude Code (AI coding assistant)
