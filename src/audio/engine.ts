@@ -678,23 +678,50 @@ export function setMix(music: number, voice: number) {
 }
 
 // ---------------------------------------------------------------- phones
-// iPhones play Web Audio through the ringer channel, so the silent switch mutes it. Asking for a playback audio session
-// (Safari 16.4+) and playing a silent <audio> element both move the page to the media channel.
+// iPhones play Web Audio through the ringer channel, so the silent switch mutes it. Safari 16.4+ lets a page ask for a
+// playback audio session. Older iPhones need a media element playing real (non-empty) silence. Desktops need neither.
+// Never loop a zero-length clip: the browser restarts it endlessly and the page freezes.
 let phoneUnlocked = false
-const SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='
 function unlockPhoneAudio() {
   if (phoneUnlocked) return
   phoneUnlocked = true
   try {
     const nav = navigator as Navigator & { audioSession?: { type: string } }
-    if (nav.audioSession) nav.audioSession.type = 'playback'
-    const el = new Audio(SILENCE)
+    if (nav.audioSession) {
+      nav.audioSession.type = 'playback'
+      return
+    }
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    if (!ios) return
+    const el = new Audio(URL.createObjectURL(silentWav(1)))
     el.loop = true
     el.setAttribute('playsinline', '')
     void el.play().catch(() => {})
   } catch {
-    // Not a phone, or the browser has no such feature.
+    // The browser has no such feature.
   }
+}
+
+/** A WAV file of real silence, `seconds` long (8 kHz, 8-bit). */
+function silentWav(seconds: number): Blob {
+  const n = Math.round(8000 * seconds)
+  const b = new DataView(new ArrayBuffer(44 + n))
+  const str = (o: number, t: string) => [...t].forEach((c, i) => b.setUint8(o + i, c.charCodeAt(0)))
+  str(0, 'RIFF')
+  b.setUint32(4, 36 + n, true)
+  str(8, 'WAVE')
+  str(12, 'fmt ')
+  b.setUint32(16, 16, true)
+  b.setUint16(20, 1, true)
+  b.setUint16(22, 1, true)
+  b.setUint32(24, 8000, true)
+  b.setUint32(28, 8000, true)
+  b.setUint16(32, 1, true)
+  b.setUint16(34, 8, true)
+  str(36, 'data')
+  b.setUint32(40, n, true)
+  for (let i = 0; i < n; i++) b.setUint8(44 + i, 128)
+  return new Blob([b.buffer], { type: 'audio/wav' })
 }
 
 // ---------------------------------------------------------------- previews
