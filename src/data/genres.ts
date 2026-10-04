@@ -57,16 +57,28 @@ export const DRUM_FITS: Record<GenreId, { kick: string[]; snare: string[]; hat: 
   latin: { kick: ['four', 'heartbeat'], snare: ['dembow', 'backbeat'], hat: ['eighth', 'sixteenth', 'offbeat'] },
 }
 
-/** Tempo zones per style: green inside a zone, yellow just outside, red far outside. */
+/** Tempo zones per style: green inside the zone, yellow just outside, red far outside. Every genre default and every
+ * famous example beat must sit inside its zone (checked in genres.test.ts). */
 export const TEMPO_ZONES: Record<GenreId, [number, number][]> = {
-  pop: [[95, 125]],
-  hiphop: [[80, 100], [130, 150]],
-  lofi: [[70, 90]],
-  rnb: [[65, 100]],
-  dance: [[118, 130]],
-  rock: [[95, 140]],
-  acoustic: [[70, 120]],
-  latin: [[88, 105]],
+  pop: [[90, 135]],
+  hiphop: [[70, 155]],
+  lofi: [[65, 95]],
+  rnb: [[60, 115]],
+  dance: [[115, 132]],
+  rock: [[75, 160]],
+  acoustic: [[65, 125]],
+  latin: [[85, 110]],
+}
+/** One sentence on how fast each style usually goes, shown under the tempo slider. */
+export const TEMPO_NOTES: Record<GenreId, string> = {
+  pop: 'Most pop sits between 100 and 130 BPM; slower pop ballads go down to about 90.',
+  hiphop: 'Hip-hop works at almost any speed: boom bap is around 85 to 95 BPM, and trap around 130 to 150, which feels half as fast because the snare lands only once a bar.',
+  lofi: 'Lo-fi is slow and relaxed, usually 70 to 90 BPM.',
+  rnb: 'R&B ballads sit around 60 to 80 BPM; disco-flavoured R&B goes up to about 115.',
+  dance: 'Club music sits in a narrow band: house is about 120 to 128 BPM.',
+  rock: 'Rock stomps sit around 80 BPM, most rock is 100 to 140, and punk goes even faster.',
+  acoustic: 'Acoustic songs range from slow ballads at 65 BPM to sing-alongs around 120.',
+  latin: 'Reggaeton sits around 88 to 100 BPM; Latin pop goes a little faster.',
 }
 export type TempoZone = 'in' | 'near' | 'far'
 export function tempoZone(genre: GenreId, bpm: number): TempoZone {

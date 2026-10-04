@@ -1,4 +1,4 @@
-import { TEMPO_ZONES, tempoZone } from '../data/genres'
+import { TEMPO_NOTES, TEMPO_ZONES, tempoZone } from '../data/genres'
 import type { Genre } from '../data/genres'
 import { Icon } from './Icon'
 
@@ -43,8 +43,8 @@ export function TempoSlider({ genre, bpm, onBpm }: { genre: Genre; bpm: number; 
         <span>{MAX} fast</span>
       </div>
       <p>
-        BPM means beats per minute. {genre.name} usually sits at {zones.map(([a, b]) => `${a} to ${b}`).join(' or ')} BPM (green). Yellow is close; red will sound
-        unusual for {genre.name}, which can also be a bold choice.
+        BPM means beats per minute. {TEMPO_NOTES[genre.id]} Green is the usual range, yellow is close, and red will sound unusual for {genre.name}, which can also be a
+        bold choice.
       </p>
     </div>
   )
