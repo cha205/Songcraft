@@ -395,6 +395,42 @@ export default function App() {
     }
   }
 
+  /** Turn an uploaded recording of someone humming into the melody. Leading silence is skipped so it starts on bar 1. */
+  async function uploadHum(file: File): Promise<boolean> {
+    halt()
+    setHumInfo('')
+    try {
+      const ctx = new OfflineAudioContext(1, 1, 44100)
+      const buf = await ctx.decodeAudioData(await file.arrayBuffer())
+      const mono = new Float32Array(buf.length)
+      for (let c = 0; c < buf.numberOfChannels; c++) {
+        const d = buf.getChannelData(c)
+        for (let i = 0; i < d.length; i++) mono[i] += d[i] / buf.numberOfChannels
+      }
+      let peak = 0
+      for (let i = 0; i < mono.length; i += 32) peak = Math.max(peak, Math.abs(mono[i]))
+      let start = 0
+      while (start < mono.length && Math.abs(mono[start]) < peak * 0.15) start++
+      const samples = mono.subarray(Math.max(0, start - Math.round(buf.sampleRate * 0.03)))
+      setRaw((r) => ({ ...r, hum: { samples: Float32Array.from(samples), sampleRate: buf.sampleRate, preroll: 0 } }))
+      const res = humToNotes(samples, buf.sampleRate, bpm, 0)
+      if (!res.notes.length) {
+        setHumInfo('No melody found in that file. A clear "doo doo" hum with little background noise works best.')
+        return false
+      }
+      updatePart({ myNotes: res.notes, tuneChoice: 'mine' })
+      setHumInfo(
+        `Songcraft found ${res.notes.length} notes in your recording. ` +
+          (res.shift ? `You sang in roughly ${res.hummedKey} major, so it moved the melody to C to match your chords.` : 'Your melody already matches the chords.'),
+      )
+      await startPlay()
+      return true
+    } catch (e) {
+      setHumInfo(`That file could not be read (${(e as Error).message}). Try an mp3, wav or m4a.`)
+      return false
+    }
+  }
+
   function clearVocals() {
     setVocal('verse', null)
     setVocal('chorus', null)
@@ -857,6 +893,7 @@ export default function App() {
             {...stepProps}
             busy={!!busy}
             onRecord={recordHum}
+            onUpload={uploadHum}
             onCoach={() => coach('melody')}
             onTips={() => melodyTips({ notes: curNotes, chords: cur.chords, genre: genre.name, feeling, part: editing, bpm })}
             info={humInfo}

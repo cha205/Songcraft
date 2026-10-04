@@ -28,6 +28,7 @@ type Props = {
   onStop: () => void
   busy: boolean
   onRecord: () => Promise<boolean>
+  onUpload: (file: File) => Promise<boolean>
   onCoach: () => Promise<{ good: string; tip: string; model: string }>
   onTips: () => Promise<MelodyTips>
   info: string
@@ -251,6 +252,22 @@ export function TuneStep(p: Props) {
                 </ul>
               </div>
             </div>
+            <label className="upload-hum">
+              <input
+                type="file"
+                accept="audio/*,.mp3,.wav,.m4a"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0]
+                  e.target.value = ''
+                  if (f && (await p.onUpload(f))) setStage('tune')
+                }}
+              />
+              <Icon name="wave" size={28} />
+              <span>
+                <b>Or upload a recording of your hum</b>
+                <small>mp3, wav or m4a. Hum along to your beat for four bars; Songcraft turns it into notes.</small>
+              </span>
+            </label>
             {p.info && <p className="notice">{p.info}</p>}
           </>
         )}
