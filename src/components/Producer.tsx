@@ -15,9 +15,7 @@ type Props = {
   open: boolean
   onOpen: (open: boolean) => void
   messages: ProducerMsg[]
-  busy: 'listening' | 'thinking' | null
-  level: () => number
-  onMic: () => void
+  busy: 'thinking' | null
   onText: (text: string) => void
   onUndo: (id: number) => void
   suggestions: string[]
@@ -27,24 +25,11 @@ type Props = {
 export function Producer(p: Props) {
   const [text, setText] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
-  const ringRef = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [p.messages, p.busy])
 
-  // Voice meter: the ring around the mic grows with your voice while Gemini is listening.
-  const { busy, level } = p
-  useEffect(() => {
-    if (busy !== 'listening') return
-    let raf = 0
-    const loop = () => {
-      ringRef.current?.style.setProperty('--lvl', level().toFixed(3))
-      raf = requestAnimationFrame(loop)
-    }
-    loop()
-    return () => cancelAnimationFrame(raf)
-  }, [busy, level])
 
   const send = (t: string) => {
     if (!t.trim() || p.busy) return
@@ -66,7 +51,6 @@ export function Producer(p: Props) {
     )
   }
 
-  const listening = p.busy === 'listening'
   return (
     <aside className="producer card" aria-label="Talk to Gemini, your producer">
       <header className="producer-head">
@@ -132,13 +116,6 @@ export function Producer(p: Props) {
       )}
 
       <div className="producer-input">
-        <button className={`talk${listening ? ' on' : ''}`} onClick={p.onMic} disabled={p.busy === 'thinking'} aria-label={listening ? 'Stop and send' : 'Talk'}>
-          <span className="talk-ring" ref={ringRef} />
-          <Icon name="mic" size={40} />
-        </button>
-        {listening ? (
-          <p className="talk-hint">Listening. Tap the mic again when you are done.</p>
-        ) : (
           <form
             className="producer-form"
             onSubmit={(e) => {
@@ -146,12 +123,11 @@ export function Producer(p: Props) {
               send(text)
             }}
           >
-            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Tap the mic and talk, or type here" maxLength={300} aria-label="Message to Gemini" disabled={!!p.busy} />
+            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type what you want to change, or ask a question" maxLength={300} aria-label="Message to Gemini" disabled={!!p.busy} />
             <button className="btn violet send" disabled={!text.trim() || !!p.busy}>
               Send
             </button>
           </form>
-        )}
       </div>
     </aside>
   )

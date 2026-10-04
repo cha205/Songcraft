@@ -6,7 +6,7 @@ import { fitHum } from './audio/fitHum'
 import { polishMelody } from './data/melody'
 import { cleanVocal } from './audio/vocal'
 import { countWords } from './audio/compare'
-import { ALL, duck, play, playRaw, playSong, preload, record, setBpm, setMix, setStepListener, setSwing, setVocal, song, startListening, stop } from './audio/engine'
+import { ALL, play, playRaw, playSong, preload, record, setBpm, setMix, setStepListener, setSwing, setVocal, song, startListening, stop } from './audio/engine'
 import type { Layers, Listening, Recording } from './audio/engine'
 import { askProducer, coachTake, lyricHelp, makeCover, melodyTips, planSong, reviewSong } from './ai'
 import type { Blueprint, Coaching, LyricHelp, ProducerChanges, ProducerReply } from './ai'
@@ -76,8 +76,6 @@ type Snapshot = {
   extras: ExtraId[]
   topic: string
 }
-// Gemini's replies are shown as text; reading them aloud was distracting in a noisy room.
-const SPEAK = false
 const nameOf = (list: { id: string; name: string }[], id: string) => list.find((x) => x.id === id)?.name ?? id
 // Which layer each producer change is heard in, so a change made before that layer plays can say where to hear it.
 const LAYER_OF: Partial<Record<keyof ProducerChanges, keyof Layers>> = { chords: 'chords', feeling: 'chords', genre: 'chords', chordInst: 'chords', bass: 'bass', lead: 'melody', extras: 'extras' }
@@ -144,12 +142,10 @@ export default function App() {
   const [wavUrl, setWavUrl] = useState<string | null>(null)
   const [howOpen, setHowOpen] = useState(false)
   const [prodOpen, setProdOpen] = useState(false)
-  const [prodBusy, setProdBusy] = useState<'listening' | 'thinking' | null>(null)
+  const [prodBusy, setProdBusy] = useState<'thinking' | null>(null)
   const [msgs, setMsgs] = useState<ProducerMsg[]>([])
   const [cover, setCover] = useState<{ key: string; image: string; model: string } | null>(null)
   const [coverBusy, setCoverBusy] = useState(false)
-  const mic = useRef<Listening | null>(null)
-  const micTimer = useRef(0)
   const undos = useRef(new Map<number, Snapshot>())
   const msgId = useRef(0)
   const humMic = useRef<Listening | null>(null)
@@ -729,26 +725,12 @@ export default function App() {
     return done
   }
 
-  function say(text: string) {
-    if (!('speechSynthesis' in window) || !SPEAK) return
-    const synth = window.speechSynthesis
-    synth.cancel()
-    const u = new SpeechSynthesisUtterance(text)
-    const voices = synth.getVoices().filter((v) => v.lang.startsWith('en'))
-    u.voice = voices.find((v) => /natural|google us english|samantha|aria|jenny/i.test(v.name)) ?? voices[0] ?? null
-    u.rate = 1.04
-    u.onstart = () => duck(true)
-    u.onend = u.onerror = () => duck(false)
-    synth.speak(u)
-  }
-
-  async function talkToProducer(input: { text?: string; rec?: { samples: Float32Array; sampleRate: number } }) {
+  async function talkToProducer(input: { text: string }) {
     const youId = ++msgId.current
-    setMsgs((m) => [...m, { id: youId, from: 'you', text: input.text ?? 'Sending your voice to Gemini' }])
+    setMsgs((m) => [...m, { id: youId, from: 'you', text: input.text }])
     setProdBusy('thinking')
     try {
-      const r = await askProducer({ text: input.text, samples: input.rec?.samples, sampleRate: input.rec?.sampleRate, state: producerState(), step: STEP_NAMES[stepIdx] })
-      if (input.rec) setMsgs((m) => m.map((x) => (x.id === youId ? { ...x, text: r.heard ? `"${r.heard}"` : 'Gemini could not make that out.' } : x)))
+      const r = await askProducer({ text: input.text, state: producerState(), step: STEP_NAMES[stepIdx] })
       const before = snapshot()
       const changes = applyProducer(r)
       const id = ++msgId.current
@@ -761,7 +743,6 @@ export default function App() {
       if (changes.length) undos.current = new Map([[id, before]])
       // Only the latest change can be undone, so older Undo buttons go away.
       setMsgs((m) => [...m.map((x) => (x.undo === 'ready' ? { ...x, undo: undefined } : x)), { id, from: 'gemini', text: r.reply, changes, hint, undo: changes.length ? 'ready' : undefined }])
-      say(r.reply)
       const target = r.goTo ? STEP_NAMES.indexOf(r.goTo) : -1
       if (target > 0 && target !== stepIdx) goTo(target)
       else if (changes.length && stepIdx >= 1 && stepIdx <= 5 && !playing && !songPlaying) void startPlay()
@@ -769,30 +750,6 @@ export default function App() {
       setMsgs((m) => [...m, { id: ++msgId.current, from: 'gemini', text: (e as Error).message, error: true }])
     } finally {
       setProdBusy(null)
-    }
-  }
-
-  async function onMic() {
-    const live = mic.current
-    if (live) {
-      mic.current = null
-      clearTimeout(micTimer.current)
-      const rec = await live.stop()
-      setProdBusy(null)
-      if (rec.samples.length < rec.sampleRate * 0.5) {
-        setMsgs((m) => [...m, { id: ++msgId.current, from: 'gemini', text: 'That was very short. Tap the mic, say what you want, then tap it again.', error: true }])
-        return
-      }
-      await talkToProducer({ rec })
-      return
-    }
-    try {
-      window.speechSynthesis?.cancel()
-      mic.current = await startListening()
-      setProdBusy('listening')
-      micTimer.current = window.setTimeout(onMic, 12000)
-    } catch (e) {
-      setMsgs((m) => [...m, { id: ++msgId.current, from: 'gemini', text: `I cannot hear you (${(e as Error).message}). You can type instead.`, error: true }])
     }
   }
 
@@ -1084,8 +1041,6 @@ export default function App() {
           onOpen={setProdOpen}
           messages={msgs}
           busy={prodBusy}
-          level={() => mic.current?.level() ?? 0}
-          onMic={onMic}
           onText={(text) => talkToProducer({ text })}
           onUndo={undoProducer}
           suggestions={SUGGESTIONS[stepIdx]}

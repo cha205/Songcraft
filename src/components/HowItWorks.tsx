@@ -2,7 +2,7 @@ import { Icon } from './Icon'
 import type { IconName } from './Icon'
 
 const ROWS: { icon: IconName; you: string; tech: string; how: string; gemini?: boolean }[] = [
-  { icon: 'chat', you: 'Talk to your producer', tech: 'Gemini 3.6 Flash (audio)', how: 'Hears what you say on any screen, changes the song (tempo, drums, chords, instruments) and tells you the music reason. Every change can be undone.', gemini: true },
+  { icon: 'chat', you: 'Ask your producer', tech: 'Gemini 3.6 Flash', how: 'Type a request on any screen and Gemini changes the song (tempo, drums, chords, instruments) and tells you the music reason. Every change can be undone.', gemini: true },
   { icon: 'wand', you: 'Describe your song', tech: 'Gemini 3.1 Pro', how: 'Turns one sentence into three song plans (genre, tempo, drums, chords, instruments) and explains every choice.', gemini: true },
   { icon: 'keys', you: 'Build with suggestions', tech: 'Music theory written for this app', how: 'Ranks the next chord and the next melody note for your style and feeling, best first, and says why. Tempo zones and "Fits Rock" tags show what each style usually uses.' },
   { icon: 'headphones', you: 'Ask Gemini to listen', tech: 'Gemini 3.1 Pro (audio)', how: 'Listens to your recording and gives feedback like a music teacher.', gemini: true },
