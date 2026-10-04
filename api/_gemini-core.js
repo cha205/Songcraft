@@ -2,8 +2,11 @@
 // (vite.config.ts). Gemini must answer with values the app understands, so every choice is an enum.
 
 export const MODELS = ['gemini-3.1-pro-preview', 'gemini-3.6-flash', 'gemini-2.5-flash']
+// Album covers: the best image model, with the fast one racing alongside.
+const IMAGE_MODELS = ['gemini-3-pro-image', 'gemini-2.5-flash-image']
 // How long to wait for the best model before accepting the faster model's answer.
-const PREFER_MS = { blueprint: 20000, lyrics: 15000, coach: 25000 }
+const PREFER_MS = { blueprint: 20000, lyrics: 15000, coach: 25000, cover: 35000 }
+export const TASKS = ['blueprint', 'lyrics', 'coach', 'producer', 'cover']
 
 const GENRES = ['pop', 'hiphop', 'lofi', 'rnb', 'dance', 'rock', 'acoustic', 'latin']
 const KICKS = ['heartbeat', 'four', 'laidback', 'bounce', 'rolling', 'sparse']
@@ -54,6 +57,26 @@ const LYRICS_SCHEMA = {
   required: ['lines', 'tip'],
 }
 
+const STEPS = ['Drums', 'Chords', 'Melody', 'Lyrics', 'Arrange', 'Song']
+const SETTINGS = ['genre', 'feeling', 'bpm', 'swing', 'kit', 'kick', 'snare', 'hat', 'fill', 'chords', 'chordInst', 'bass', 'lead', 'extras', 'topic']
+
+const PRODUCER_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    heard: str(),
+    reply: str(),
+    part: str(['verse', 'chorus', 'both']),
+    changes: {
+      type: 'ARRAY',
+      items: { type: 'OBJECT', properties: { setting: str(SETTINGS), value: str() }, required: ['setting', 'value'] },
+    },
+    goTo: str(STEPS),
+  },
+  // Decide the changes first, then describe them, so the reply never promises a change that is not there.
+  propertyOrdering: ['heard', 'part', 'changes', 'goTo', 'reply'],
+  required: ['heard', 'changes', 'reply'],
+}
+
 function blueprintPrompt({ text }) {
   return `You are a friendly music producer helping a complete beginner, possibly a child, plan an original song.
 Turn their description into exactly three different song plans, using only the allowed values in the schema.
@@ -95,7 +118,66 @@ Reply with:
 Use simple words a 10-year-old understands. Be honest but kind. If the recording is silent or unclear, say so gently in tip.`
 }
 
-export function buildRequest(task, payload) {
+function producerPrompt({ text, state, step }) {
+  const said = text ? `They typed: """${String(text).slice(0, 300)}"""` : 'Listen to the audio: it is what they said to you.'
+  return `You are the friendly producer and music teacher inside Songmaker, talking with a beginner (maybe a child) who is building an original song.
+${said}
+Do what they ask by changing the song's settings, and/or answer their question.
+
+The song right now: ${JSON.stringify(state).slice(0, 1500)}
+They are on the "${step}" step.
+
+Settings you can change (only these values exist):
+- genre: pop, hiphop (rap and trap), lofi (calm study music), rnb (smooth, soulful), dance (club, electronic), rock, acoustic (ballads, folk), latin (reggaeton).
+- feeling: bright = happy, hopeful (major chords). dark = sad, serious, intense (minor chords).
+- bpm: 60 to 160. swing: 0 (straight) to 0.5 (bouncy, shuffled).
+- kit: acoustic (real drums), kit8 (808 machine, hip-hop), cr78 (vintage machine), linn (80s machine), techno (club kit), breakbeat, r8 (studio machine).
+- kick: heartbeat (beats 1 and 3), four (every beat, dance), laidback, bounce, rolling (trap), sparse.
+- snare: backbeat (beats 2 and 4), halftime (beat 3, heavy), ghost (funky extra taps), dembow (reggaeton).
+- hat: quarter (calm), eighth, offbeat (house), sixteenth (busy), trap (fast rolls).
+- fill: true adds a drum fill at the end of each loop.
+- chords: exactly four of C, Dm, Em, F, G, Am. Bright songs usually start on C, F or G; dark songs on Am, Dm or Em.
+- chordInst: piano, guitar, strings, pad. bass: roots (follows the kick), eighths (driving), sub (deep 808).
+- lead (the instrument that plays the melody): piano, flute, guitar, violin, synth, bells.
+- extras: the complete new list of added instruments (keep the current ones unless they want them gone): strings, guitar, arp (synth arpeggio), flute, pad. Use [] to remove them all.
+- topic: what the lyrics are about, 3 to 8 words.
+- changes: a list of { setting, value } pairs, one for each setting that should change, and nothing else. Values are plain text: chords are four chords separated by spaces; extras is the complete new list separated by commas, or none; fill is true or false.
+- part: which loop drum and chord changes apply to: verse, chorus or both. Default to the one they are working on.
+- goTo: a step to open, only if they ask to go somewhere.
+
+Rules:
+- heard: what they said, word for word.
+- "Sadder" means dark feeling and usually slower. "Happier" means bright. "More energy" or "hype" means faster and busier drums.
+- If they only ask a question, answer it and change nothing.
+- reply: describe only the changes you actually put in "changes". One or two short sentences a 10-year-old understands, spoken to them directly and warmly. Say what you changed and the music reason it works, or answer the question. No emoji, no lists.
+- If the audio is silent or you cannot understand it, change nothing and ask them to try again.
+- Never mention or imitate real songs or artists.`
+}
+
+function coverPrompt({ title, genre, feeling, topic, lyrics }) {
+  const mood = feeling === 'dark' ? 'moody night blues, violets and one glowing accent colour' : 'warm, sunny, saturated colours'
+  return `Square album cover art for an original song by a young beginner.
+Song: "${String(title || 'Untitled').slice(0, 40)}", a ${feeling === 'dark' ? 'sad, serious' : 'happy, upbeat'} ${genre} song about ${String(topic || 'anything').slice(0, 80)}.
+Lyrics: ${(Array.isArray(lyrics) ? lyrics : []).filter(Boolean).join(' / ').slice(0, 400) || 'none yet'}
+Art direction: one clear central scene or object taken from the lyrics or topic, bold flat-shaded illustration with soft gradients, chunky rounded shapes, gentle grain, depth and dramatic lighting, ${mood}. Premium, polished, kid-friendly.
+Show a scene or objects, not a mascot: no chibi or cartoon characters with faces. Absolutely no text, letters, numbers, logos or watermarks. No real people, no famous characters.`
+}
+
+const thinking = (model) => (model.startsWith('gemini-3') ? { thinkingLevel: 'low' } : { thinkingBudget: 0 })
+
+export function buildRequest(task, payload, model = '') {
+  if (task === 'producer') {
+    const parts = payload.audio ? [{ inlineData: { mimeType: 'audio/wav', data: String(payload.audio) } }] : []
+    parts.push({ text: producerPrompt(payload) })
+    return {
+      contents: [{ role: 'user', parts }],
+      generationConfig: { temperature: 0.4, responseMimeType: 'application/json', responseSchema: PRODUCER_SCHEMA, thinkingConfig: thinking(model) },
+    }
+  }
+  if (task === 'cover') {
+    const imageConfig = model.startsWith('gemini-3') ? { aspectRatio: '1:1', imageSize: '1K' } : { aspectRatio: '1:1' }
+    return { contents: [{ role: 'user', parts: [{ text: coverPrompt(payload) }] }], generationConfig: { responseModalities: ['IMAGE'], imageConfig } }
+  }
   if (task === 'coach') {
     return {
       contents: [{ role: 'user', parts: [{ inlineData: { mimeType: 'audio/wav', data: String(payload.audio || '') } }, { text: coachPrompt(payload) }] }],
@@ -140,10 +222,53 @@ function normalizePlan(r) {
 }
 
 /** Parse Gemini's JSON and clamp every value to something the app supports. */
+/** Turn Gemini's [{ setting, value }] list into checked settings the app can apply. */
+function normalizeChanges(list) {
+  const c = {}
+  for (const x of Array.isArray(list) ? list : []) if (x && SETTINGS.includes(x.setting)) c[x.setting] = String(x.value ?? '').trim()
+  const out = {}
+  const one = (k, options) => options.includes(c[k]) && (out[k] = c[k])
+  one('genre', GENRES)
+  one('feeling', ['bright', 'dark'])
+  one('kit', KITS)
+  one('kick', KICKS)
+  one('snare', SNARES)
+  one('hat', HATS)
+  one('chordInst', CHORD_INSTS)
+  one('bass', BASSES)
+  one('lead', LEADS)
+  const num = (k) => (c[k] !== undefined && c[k] !== '' && Number.isFinite(Number(c[k])) ? Number(c[k]) : null)
+  if (num('bpm') !== null) out.bpm = Math.max(60, Math.min(160, Math.round(num('bpm'))))
+  if (num('swing') !== null) out.swing = Math.max(0, Math.min(0.5, Math.round(num('swing') * 20) / 20))
+  if (c.fill === 'true' || c.fill === 'false') out.fill = c.fill === 'true'
+  const words = (k) => (c[k] || '').split(/[\s,]+/).filter(Boolean)
+  const chords = words('chords').filter((x) => CHORDS.includes(x))
+  if (chords.length >= 4) out.chords = chords.slice(0, 4)
+  if (c.extras !== undefined) out.extras = [...new Set(words('extras').filter((x) => EXTRAS.includes(x)))]
+  if (c.topic) out.topic = c.topic.slice(0, 80)
+  return out
+}
+
 export function readResult(task, response, model) {
-  const text = response?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '{}'
+  const parts = response?.candidates?.[0]?.content?.parts || []
+  if (task === 'cover') {
+    const img = parts.find((p) => p.inlineData?.data)
+    if (!img) throw new Error('no image')
+    return { image: `data:${img.inlineData.mimeType || 'image/png'};base64,${img.inlineData.data}`, model }
+  }
+  const text = parts.map((p) => p.text || '').join('') || '{}'
   const r = JSON.parse(text)
   if (task === 'coach') return { good: String(r.good || ''), tip: String(r.tip || ''), model }
+  if (task === 'producer') {
+    return {
+      heard: String(r.heard || '').slice(0, 300),
+      reply: String(r.reply || '').slice(0, 400),
+      part: pick(r.part, ['verse', 'chorus', 'both'], ''),
+      changes: normalizeChanges(r.changes || {}),
+      goTo: pick(r.goTo, STEPS, ''),
+      model,
+    }
+  }
   if (task === 'lyrics') {
     const lines = Array.isArray(r.lines) ? r.lines.slice(0, 4).map(String) : []
     while (lines.length < 4) lines.push('')
@@ -160,19 +285,23 @@ export function readResult(task, response, model) {
  */
 export async function callBest(task, payload, run) {
   const attempt = async (model) => {
-    const r = await run(model, buildRequest(task, payload))
+    const r = await run(model, buildRequest(task, payload, model))
     if (!r.ok) throw new Error(`${model}: ${r.status}`)
     return readResult(task, r.json, model)
   }
-  const best = attempt(MODELS[0])
-  const fast = attempt(MODELS[1])
+  // Talking to the producer has to feel instant, so it skips the slow model.
+  if (task === 'producer') return attempt(MODELS[1]).catch(() => attempt(MODELS[2]))
+  const models = task === 'cover' ? IMAGE_MODELS : MODELS
+  const best = attempt(models[0])
+  const fast = attempt(models[1])
   best.catch(() => {})
   fast.catch(() => {})
   const early = await Promise.race([best, new Promise((res) => setTimeout(() => res(null), PREFER_MS[task] ?? 20000))]).catch(() => null)
   if (early) return early
   try {
     return await Promise.any([best, fast])
-  } catch {
+  } catch (e) {
+    if (task === 'cover') throw e
     return attempt(MODELS[2])
   }
 }

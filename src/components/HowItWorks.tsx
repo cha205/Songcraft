@@ -2,13 +2,15 @@ import { Icon } from './Icon'
 import type { IconName } from './Icon'
 
 const ROWS: { icon: IconName; you: string; tech: string; how: string; gemini?: boolean }[] = [
-  { icon: 'chat', you: 'Describe your song', tech: 'Gemini 3.1 Pro', how: 'Turns one sentence into three song plans (genre, tempo, drums, chords, instruments) and explains every choice.', gemini: true },
+  { icon: 'chat', you: 'Talk to your producer', tech: 'Gemini 3.6 Flash (audio)', how: 'Hears what you say on any screen, changes the song (tempo, drums, chords, instruments) and tells you the music reason. Every change can be undone.', gemini: true },
+  { icon: 'wand', you: 'Describe your song', tech: 'Gemini 3.1 Pro', how: 'Turns one sentence into three song plans (genre, tempo, drums, chords, instruments) and explains every choice.', gemini: true },
   { icon: 'kick', you: 'Beatbox the drums', tech: 'Audio analysis in the browser', how: 'Finds each sound by its jump in loudness, then tells "boom", "pff" and "tss" apart by how deep or hissy it is.' },
   { icon: 'headphones', you: 'Ask Gemini to listen', tech: 'Gemini 3.1 Pro (audio)', how: 'Listens to your recording and gives feedback like a music teacher.', gemini: true },
   { icon: 'mic', you: 'Hum the melody', tech: 'Pitch detection (pitchy)', how: 'Measures your pitch 90 times a second, then snaps each note to the beat and into the key.' },
   { icon: 'notebook', you: 'Write lyrics', tech: 'Gemini 3.1 Pro', how: 'Writes lines that fit the number of notes in each bar of your melody.', gemini: true },
   { icon: 'flute', you: 'Hear real instruments', tech: 'Tone.js + recorded samples', how: 'Plays piano, flute, violin, cello, guitar and seven drum kits from real recordings.' },
   { icon: 'download', you: 'Download your song', tech: 'Web Audio', how: 'Records the finished song inside your browser and saves it as a WAV file.' },
+  { icon: 'vinyl', you: 'Your album cover', tech: 'Gemini 3 Pro Image', how: 'Paints a one-of-a-kind cover for your song from its title, mood and lyrics.', gemini: true },
   { icon: 'sparkle', you: 'Every picture and icon', tech: 'Gemini 3 Pro Image', how: 'All illustrations and the 72 icons were generated on Google Cloud in one consistent style.', gemini: true },
 ]
 

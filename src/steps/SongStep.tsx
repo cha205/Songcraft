@@ -26,6 +26,10 @@ type Props = {
   onStop: () => void
   wavUrl: string | null
   onRestart: () => void
+  cover: string | null
+  coverBusy: boolean
+  coverStale: boolean
+  onNewCover: () => void
 }
 
 const LAYER_ICONS: [LayerKey, IconName, string][] = [
@@ -51,11 +55,18 @@ export function SongStep(p: Props) {
       <div className="card stage-card">
         <Coach icon="vinyl">Give it a name and press play. Songmaker plays every section you arranged, then lets you download it.</Coach>
         <div className="release">
-          <div className={`cover${p.songPlaying ? ' playing' : ''}`} style={{ backgroundImage: `url(/assets/scenes/genre_${p.genre.id}.webp)` }}>
+          <div className={`cover${p.songPlaying ? ' playing' : ''}${p.cover ? ' gem' : ''}`} style={{ backgroundImage: `url(${p.cover ?? `/assets/scenes/genre_${p.genre.id}.webp`})` }}>
             <div className="cover-shade" />
-            <div className="cover-disc">
-              <Icon name="vinyl" size={170} />
-            </div>
+            {!p.cover && (
+              <div className="cover-disc">
+                <Icon name="vinyl" size={170} />
+              </div>
+            )}
+            {(p.coverBusy || p.cover) && (
+              <span className={`cover-badge${p.coverBusy ? ' busy' : ''}`}>
+                <Icon name="sparkle" size={22} /> {p.coverBusy ? 'Gemini is painting your cover' : 'Cover painted by Gemini'}
+              </span>
+            )}
             <div className="cover-text">
               <input className="cover-title" value={p.title} placeholder="Name your song" maxLength={40} onChange={(e) => p.onTitle(e.target.value)} aria-label="Song title" />
               <span className="cover-meta">
@@ -73,6 +84,11 @@ export function SongStep(p: Props) {
               ) : (
                 <button className="btn green xl" onClick={p.onPlaySong}>
                   <Icon name="play" size={32} /> {p.wavUrl ? 'Play again' : `Play my ${kind}`}
+                </button>
+              )}
+              {!p.coverBusy && (!p.cover || p.coverStale) && (
+                <button className="btn violet" onClick={p.onNewCover}>
+                  <Icon name="sparkle" size={24} /> {p.cover ? 'Paint a new cover' : 'Ask Gemini for a cover'}
                 </button>
               )}
               {p.wavUrl ? (

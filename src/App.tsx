@@ -1,20 +1,22 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { beatboxToHits, hitsToGrid, humToNotes } from './audio/analysis'
 import type { Drum, DrumGrid, Note } from './audio/analysis'
 import { countWords } from './audio/compare'
-import { ALL, play, playRaw, playSong, preload, record, setBpm, setStepListener, setSwing, song, stop } from './audio/engine'
-import type { Layers, Recording } from './audio/engine'
-import { coachTake, planSong, writeLyrics } from './ai'
-import type { Blueprint, Coaching } from './ai'
+import { ALL, duck, play, playRaw, playSong, preload, record, setBpm, setStepListener, setSwing, song, startListening, stop } from './audio/engine'
+import type { Layers, Listening, Recording } from './audio/engine'
+import { askProducer, coachTake, makeCover, planSong, writeLyrics } from './ai'
+import type { Blueprint, Coaching, ProducerChanges, ProducerReply } from './ai'
 import { Dock } from './components/Dock'
 import { HowItWorks } from './components/HowItWorks'
 import { Icon } from './components/Icon'
 import type { IconName } from './components/Icon'
 import { PartBar } from './components/PartBar'
+import { Producer } from './components/Producer'
+import type { ProducerMsg } from './components/Producer'
 import { RecordOverlay } from './components/RecordOverlay'
 import { sectionsFor } from './data/sections'
 import type { PartId, Section, SongLength } from './data/sections'
-import { EXAMPLE_CHORUS, EXAMPLE_TUNES, FEELING_INFO, HATS, KICKS, SNARES, chorusLesson, genreById, gridFrom, option } from './data/genres'
+import { BASSES, CHORD_INSTS, EXAMPLE_CHORUS, EXAMPLE_TUNES, EXTRAS, FEELING_INFO, HATS, KICKS, KITS, LEADS, SNARES, chorusLesson, genreById, gridFrom, option } from './data/genres'
 import type { BassId, ChordInstId, ExtraId, Feeling, GenreId, KitId, LeadId } from './data/genres'
 import { ArrangeStep } from './steps/ArrangeStep'
 import { ChordsStep } from './steps/ChordsStep'
@@ -44,6 +46,35 @@ const BLANK_LYRICS = ['', '', '', '']
 /** Everything that belongs to one core loop. The verse and the chorus each have their own. */
 type Part = { lesson: Lesson; custom: DrumGrid | null; chords: string[]; myNotes: Note[] | null; tuneChoice: 'example' | 'mine'; lyrics: string[] }
 const emptyPart = (lesson: Lesson, chords: string[]): Part => ({ lesson, custom: null, chords, myNotes: null, tuneChoice: 'example', lyrics: BLANK_LYRICS })
+
+/** The song settings the producer can change, saved before each change so it can be undone. */
+type Snapshot = {
+  genreId: GenreId | null
+  feeling: Feeling
+  bpm: number
+  swing: number
+  kit: KitId
+  parts: Record<PartId, Part>
+  fill: boolean
+  chordInst: ChordInstId
+  bass: BassId
+  lead: LeadId
+  extras: ExtraId[]
+  topic: string
+}
+const nameOf = (list: { id: string; name: string }[], id: string) => list.find((x) => x.id === id)?.name ?? id
+// Which layer each producer change is heard in, so a change made before that layer plays can say where to hear it.
+const LAYER_OF: Partial<Record<keyof ProducerChanges, keyof Layers>> = { chords: 'chords', feeling: 'chords', genre: 'chords', chordInst: 'chords', bass: 'bass', lead: 'melody', extras: 'extras' }
+const FIRST_STEP_WITH: Record<keyof Layers, number> = { drums: 1, chords: 2, bass: 2, melody: 3, extras: 5, double: 5 }
+const SUGGESTIONS: string[][] = [
+  [],
+  ['Make the beat busier', 'Slow it down a little', 'Why is the snare on 2 and 4?'],
+  ['Make it sadder', 'Play the chords on guitar', 'What makes a chord sound sad?'],
+  ['Play my melody on flute', 'Give it more energy', 'How do I make a catchy melody?'],
+  ['Make the song about my dog', 'What should a chorus say?', 'Make it happier'],
+  ['Add strings and a soft pad', 'Turn it into a rap song', 'What does an intro do?'],
+  ['Make the chorus hit harder', 'What should I try next?', 'Give it more swing'],
+]
 
 export default function App() {
   const [stepIdx, setStepIdx] = useState(0)
@@ -88,6 +119,16 @@ export default function App() {
   const [songPlaying, setSongPlaying] = useState(false)
   const [wavUrl, setWavUrl] = useState<string | null>(null)
   const [howOpen, setHowOpen] = useState(false)
+  const [prodOpen, setProdOpen] = useState(false)
+  const [prodBusy, setProdBusy] = useState<'listening' | 'thinking' | null>(null)
+  const [msgs, setMsgs] = useState<ProducerMsg[]>([])
+  const [speak, setSpeak] = useState(true)
+  const [cover, setCover] = useState<{ key: string; image: string; model: string } | null>(null)
+  const [coverBusy, setCoverBusy] = useState(false)
+  const mic = useRef<Listening | null>(null)
+  const micTimer = useRef(0)
+  const undos = useRef(new Map<number, Snapshot>())
+  const msgId = useRef(0)
 
   const genre = genreId ? genreById(genreId) : null
   const sections = customSections ?? sectionsFor(length, bpm)
@@ -142,6 +183,7 @@ export default function App() {
     halt()
     setStepIdx(i)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (i === 6 && cover?.key !== coverKey) void paintCover()
   }
 
   /** Load a style's defaults for both core loops. Clears anything made for the previous style. */
@@ -221,13 +263,13 @@ export default function App() {
     goTo(1)
   }
 
-  async function draftLyrics() {
+  async function draftLyrics(topicNow = topic) {
     if (!genre) return
     setLyricBusy(true)
     setLyricError('')
     try {
       const perBar = [0, 1, 2, 3].map((b) => Math.max(3, curNotes.filter((n) => n.start >= b * 16 && n.start < b * 16 + 16).length))
-      const res = await writeLyrics({ genre: genre.name, feeling, topic, title: songTitle, syllables: perBar, part: editing })
+      const res = await writeLyrics({ genre: genre.name, feeling, topic: topicNow, title: songTitle, syllables: perBar, part: editing })
       updatePart({ lyrics: res.lines })
       setLyricTip(res.tip)
     } catch (e) {
@@ -310,6 +352,197 @@ export default function App() {
       if (wavUrl) URL.revokeObjectURL(wavUrl)
       setWavUrl(URL.createObjectURL(wav))
     }
+  }
+
+  // ---------------------------------------------------------------- album cover painted by Gemini
+  const coverKey = `${songTitle}|${genreId}|${feeling}|${topic}|${parts.verse.lyrics.join()}|${parts.chorus.lyrics.join()}`
+  async function paintCover() {
+    if (!genre || coverBusy) return
+    const key = coverKey
+    setCoverBusy(true)
+    try {
+      const lyrics = [...(length !== 'chorus' ? parts.verse.lyrics : []), ...(length !== 'verse' ? parts.chorus.lyrics : [])]
+      const res = await makeCover({ title: songTitle, genre: genre.name, feeling, topic, lyrics })
+      setCover({ key, image: res.image, model: res.model })
+    } catch {
+      // The genre artwork stays as the cover.
+    } finally {
+      setCoverBusy(false)
+    }
+  }
+
+  // ---------------------------------------------------------------- the producer you talk to
+  const snapshot = (): Snapshot => ({ genreId, feeling, bpm, swing, kit, parts, fill, chordInst, bass, lead, extras, topic })
+  function restore(s: Snapshot) {
+    setGenreId(s.genreId)
+    setFeeling(s.feeling)
+    setBpmState(s.bpm)
+    setSwingState(s.swing)
+    setKit(s.kit)
+    setParts(s.parts)
+    setFill(s.fill)
+    setChordInst(s.chordInst)
+    setBass(s.bass)
+    setLead(s.lead)
+    setExtras(s.extras)
+    setTopic(s.topic)
+  }
+  const producerState = () => {
+    const part = (p: Part) => ({ ...p.lesson, ownBeat: !!p.custom, chords: p.chords, ownMelody: p.tuneChoice === 'mine', lyrics: p.lyrics.filter(Boolean) })
+    return { genre: genreId, feeling, bpm, swing, kit, fill, songLength: length, workingOn: editing, verse: part(parts.verse), chorus: part(parts.chorus), chordInst, bass, lead, extras, topic, title: songTitle }
+  }
+
+  /** Apply the producer's changes to the song and return a plain list of what changed. */
+  function applyProducer(r: ProducerReply): string[] {
+    const c = r.changes
+    const done: string[] = []
+    const f = c.feeling ?? feeling
+    const gid = c.genre ?? genreId ?? 'pop'
+    const g = genreById(gid)
+    const newGenre = gid !== genreId
+    const next = { verse: { ...parts.verse }, chorus: { ...parts.chorus } }
+    // A new style or feeling brings its own chords (and a new style its drums), unless Gemini chose them.
+    if (newGenre || f !== feeling) {
+      const sets = g.chords[f]
+      next.verse.chords = sets[0].chords
+      next.chorus.chords = (sets[1] ?? sets[0]).chords
+    }
+    if (newGenre) {
+      next.verse = { ...next.verse, lesson: g.drums[f], custom: null }
+      next.chorus = { ...next.chorus, lesson: chorusLesson(g.drums[f]), custom: null }
+      setGenreId(gid)
+      done.push(`Style: ${g.name}`)
+    }
+    if (f !== feeling) {
+      setFeeling(f)
+      done.push(`Feeling: ${FEELING_INFO[f].name}`)
+    }
+    const targets: PartId[] = r.part === 'both' ? ['verse', 'chorus'] : [r.part || editing]
+    for (const id of targets) {
+      const p = next[id]
+      if (c.kick || c.snare || c.hat) {
+        next[id] = { ...p, lesson: { kick: c.kick ?? p.lesson.kick, snare: c.snare ?? p.lesson.snare, hat: c.hat ?? p.lesson.hat }, custom: null }
+        const which = targets.length > 1 ? '' : ` (${id})`
+        if (c.kick) done.push(`Kick${which}: ${option(KICKS, c.kick).name}`)
+        if (c.snare) done.push(`Snare${which}: ${option(SNARES, c.snare).name}`)
+        if (c.hat) done.push(`Hi-hat${which}: ${option(HATS, c.hat).name}`)
+      }
+      if (c.chords) {
+        next[id] = { ...next[id], chords: c.chords }
+        done.push(`Chords (${id}): ${c.chords.join(' ')}`)
+      }
+    }
+    setParts(next)
+    const bpmNow = c.bpm ?? (newGenre ? g.bpm[f] : bpm)
+    if (bpmNow !== bpm) {
+      setBpmState(bpmNow)
+      done.push(`Tempo: ${bpm} to ${bpmNow} BPM`)
+    }
+    const swingNow = c.swing ?? (newGenre ? g.swing : swing)
+    if (swingNow !== swing) {
+      setSwingState(swingNow)
+      done.push(`Swing: ${swingNow < 0.05 ? 'straight' : swingNow < 0.25 ? 'a little' : 'lots'}`)
+    }
+    const set = <T extends string>(now: T, want: T | undefined, fallback: T, apply: (v: T) => void, label: string, list: { id: string; name: string }[]) => {
+      const v = want ?? (newGenre ? fallback : now)
+      if (v !== now) {
+        apply(v)
+        done.push(`${label}: ${nameOf(list, v)}`)
+      }
+    }
+    set(kit, c.kit, g.kit[f], setKit, 'Drum kit', KITS)
+    set(chordInst, c.chordInst, g.chordInst, setChordInst, 'Chords played on', CHORD_INSTS)
+    set(bass, c.bass, g.bass, setBass, 'Bass', BASSES)
+    set(lead, c.lead, g.lead, setLead, 'Melody played on', LEADS)
+    if (c.extras && c.extras.join() !== extras.join()) {
+      setExtras(c.extras)
+      done.push(c.extras.length ? `Added instruments: ${c.extras.map((e) => nameOf(EXTRAS, e)).join(', ')}` : 'Added instruments: none')
+    }
+    if (c.fill !== undefined && c.fill !== fill) {
+      setFill(c.fill)
+      done.push(`Drum fill: ${c.fill ? 'on' : 'off'}`)
+    }
+    if (c.topic && c.topic !== topic) {
+      setTopic(c.topic)
+      done.push(`Lyrics about: ${c.topic}`)
+    }
+    return done
+  }
+
+  function say(text: string) {
+    if (!speak || !('speechSynthesis' in window)) return
+    const synth = window.speechSynthesis
+    synth.cancel()
+    const u = new SpeechSynthesisUtterance(text)
+    const voices = synth.getVoices().filter((v) => v.lang.startsWith('en'))
+    u.voice = voices.find((v) => /natural|google us english|samantha|aria|jenny/i.test(v.name)) ?? voices[0] ?? null
+    u.rate = 1.04
+    u.onstart = () => duck(true)
+    u.onend = u.onerror = () => duck(false)
+    synth.speak(u)
+  }
+
+  async function talkToProducer(input: { text?: string; rec?: { samples: Float32Array; sampleRate: number } }) {
+    const youId = ++msgId.current
+    setMsgs((m) => [...m, { id: youId, from: 'you', text: input.text ?? 'Sending your voice to Gemini' }])
+    setProdBusy('thinking')
+    try {
+      const r = await askProducer({ text: input.text, samples: input.rec?.samples, sampleRate: input.rec?.sampleRate, state: producerState(), step: STEP_NAMES[stepIdx] })
+      if (input.rec) setMsgs((m) => m.map((x) => (x.id === youId ? { ...x, text: r.heard ? `"${r.heard}"` : 'Gemini could not make that out.' } : x)))
+      const before = snapshot()
+      const changes = applyProducer(r)
+      const id = ++msgId.current
+      const layers = LAYERS_BY_STEP[stepIdx]
+      const later = (Object.keys(r.changes) as (keyof ProducerChanges)[])
+        .map((k) => LAYER_OF[k])
+        .filter((l): l is keyof Layers => !!l && !layers[l])
+        .map((l) => FIRST_STEP_WITH[l])
+      const hint = changes.length && later.length && !r.goTo ? `You will hear this from the ${STEP_NAMES[Math.min(...later)]} step.` : undefined
+      if (changes.length) undos.current = new Map([[id, before]])
+      // Only the latest change can be undone, so older Undo buttons go away.
+      setMsgs((m) => [...m.map((x) => (x.undo === 'ready' ? { ...x, undo: undefined } : x)), { id, from: 'gemini', text: r.reply, changes, hint, undo: changes.length ? 'ready' : undefined }])
+      say(r.reply)
+      const target = r.goTo ? STEP_NAMES.indexOf(r.goTo) : -1
+      if (target > 0 && target !== stepIdx) goTo(target)
+      else if (changes.length && stepIdx >= 1 && stepIdx <= 5 && !playing && !songPlaying) void startPlay()
+      if (r.changes.topic && stepIdx === 4) void draftLyrics(r.changes.topic)
+    } catch (e) {
+      setMsgs((m) => [...m, { id: ++msgId.current, from: 'gemini', text: (e as Error).message, error: true }])
+    } finally {
+      setProdBusy(null)
+    }
+  }
+
+  async function onMic() {
+    const live = mic.current
+    if (live) {
+      mic.current = null
+      clearTimeout(micTimer.current)
+      const rec = await live.stop()
+      setProdBusy(null)
+      if (rec.samples.length < rec.sampleRate * 0.5) {
+        setMsgs((m) => [...m, { id: ++msgId.current, from: 'gemini', text: 'That was very short. Tap the mic, say what you want, then tap it again.', error: true }])
+        return
+      }
+      await talkToProducer({ rec })
+      return
+    }
+    try {
+      window.speechSynthesis?.cancel()
+      mic.current = await startListening()
+      setProdBusy('listening')
+      micTimer.current = window.setTimeout(onMic, 12000)
+    } catch (e) {
+      setMsgs((m) => [...m, { id: ++msgId.current, from: 'gemini', text: `I cannot hear you (${(e as Error).message}). You can type instead.`, error: true }])
+    }
+  }
+
+  function undoProducer(id: number) {
+    const s = undos.current.get(id)
+    if (!s) return
+    restore(s)
+    undos.current.delete(id)
+    setMsgs((m) => m.map((x) => (x.id === id ? { ...x, undo: 'done' } : x)))
   }
 
   function restart() {
@@ -532,12 +765,31 @@ export default function App() {
             onStop={halt}
             wavUrl={wavUrl}
             onRestart={restart}
+            cover={cover?.image ?? null}
+            coverBusy={coverBusy}
+            coverStale={!!cover && cover.key !== coverKey}
+            onNewCover={paintCover}
           />
         )}
       </main>
 
       {stepIdx > 0 && <Dock parts={dockParts} nextLabel={nextLabel} onBack={() => goTo(stepIdx - 1)} onNext={next} disabled={!!busy} />}
 
+      {genre && stepIdx > 0 && !busy && (
+        <Producer
+          open={prodOpen}
+          onOpen={setProdOpen}
+          messages={msgs}
+          busy={prodBusy}
+          level={() => mic.current?.level() ?? 0}
+          onMic={onMic}
+          onText={(text) => talkToProducer({ text })}
+          onUndo={undoProducer}
+          suggestions={SUGGESTIONS[stepIdx]}
+          speak={speak}
+          onSpeak={setSpeak}
+        />
+      )}
       {howOpen && <HowItWorks onClose={() => setHowOpen(false)} />}
       <RecordOverlay busy={busy} count={count} step={playStep} />
     </div>

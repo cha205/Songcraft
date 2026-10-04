@@ -511,3 +511,49 @@ export async function record(
   }
   return { samples, sampleRate: sr, preroll }
 }
+
+export type Listening = { stop: () => Promise<{ samples: Float32Array; sampleRate: number }>; level: () => number }
+
+/**
+ * Record the microphone freely (no count-in, no beat) so the user can talk to Gemini. Any music keeps playing,
+ * turned down so the request is easy to hear. `level()` is the latest loudness, 0 to 1, for a voice meter.
+ */
+export async function startListening(): Promise<Listening> {
+  await Tone.start()
+  await ensureWorklet()
+  const ctx = Tone.getContext()
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+  const src = ctx.createMediaStreamSource(stream)
+  const node = ctx.createAudioWorkletNode('songmaker-rec')
+  const sink = ctx.createGain()
+  sink.gain.value = 0
+  const chunks: Float32Array[] = []
+  let last = 0
+  node.port.onmessage = (e: MessageEvent<{ frame: number; data: Float32Array }>) => {
+    chunks.push(e.data.data)
+    let sum = 0
+    for (const v of e.data.data) sum += v * v
+    last = Math.min(1, Math.sqrt(sum / e.data.data.length) * 6)
+  }
+  src.connect(node)
+  node.connect(sink)
+  sink.connect(ctx.rawContext.destination)
+  duck(true)
+  return {
+    level: () => last,
+    stop: async () => {
+      src.disconnect()
+      node.disconnect()
+      sink.disconnect()
+      stream.getTracks().forEach((t) => t.stop())
+      duck(false)
+      return { samples: join(chunks), sampleRate: ctx.sampleRate }
+    },
+  }
+}
+
+/** Turn the music down while someone is speaking over it, and back up afterwards. */
+export function duck(on: boolean) {
+  const out = Tone.getDestination()
+  if (!out.mute) out.volume.rampTo(on ? -14 : 0, 0.25)
+}

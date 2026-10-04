@@ -1,8 +1,8 @@
-// Vercel serverless function: POST /api/gemini { task: 'blueprint' | 'lyrics' | 'coach', payload }.
+// Vercel serverless function: POST /api/gemini { task: 'blueprint' | 'lyrics' | 'coach' | 'producer' | 'cover', payload }.
 // Talks to Gemini on Vertex AI (Google Cloud) without any stored key: Vercel signs a short-lived OIDC token for this
 // project, Google's Security Token Service swaps it for a Google token (Workload Identity Federation), and that token
 // acts as a service account that may only call Vertex AI. GEMINI_API_KEY (Google AI Studio) still works as a fallback.
-import { callBest } from './_gemini-core.js'
+import { TASKS, callBest } from './_gemini-core.js'
 
 // Identifiers, not secrets. Override with environment variables if the Google Cloud setup changes.
 const env = process.env
@@ -59,7 +59,7 @@ export async function POST(request) {
     return Response.json({ error: 'Bad request.' }, { status: 400 })
   }
   const { task, payload } = body || {}
-  if (task !== 'blueprint' && task !== 'lyrics' && task !== 'coach') return Response.json({ error: 'Unknown task.' }, { status: 400 })
+  if (!TASKS.includes(task)) return Response.json({ error: 'Unknown task.' }, { status: 400 })
   try {
     const result = oidc
       ? await callBest(task, payload, async (model, req) => {

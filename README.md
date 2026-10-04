@@ -12,7 +12,8 @@ npm run dev
 - Vite, React, TypeScript, oxlint, Vitest
 - Tone.js (instruments, timing, playback)
 - pitchy (pitch detection, McLeod method)
-- Google Gemini through Vertex AI / the Gemini API: `gemini-3.1-pro-preview` (fallbacks `gemini-3.6-flash`, `gemini-2.5-flash`) for song planning and lyrics
+- Google Gemini through Vertex AI / the Gemini API: `gemini-3.1-pro-preview` (fallbacks `gemini-3.6-flash`, `gemini-2.5-flash`) for song planning, lyrics and listening feedback; `gemini-3.6-flash` for the talk-to-your-producer feature (audio in, song changes out); `gemini-3-pro-image` (fallback `gemini-2.5-flash-image`) for each song's album cover
+- Web Speech API (the producer reads its replies aloud)
 - Salamander Grand Piano samples by Alexander Holm (CC BY 3.0), via the Tone.js sample CDN
 - tonejs-instruments samples by Nicholaus Brosowsky (flute, violin, cello, acoustic guitar; CC BY 3.0)
 - Tone.js drum samples (acoustic, 808, CR78, LINN, Techno, breakbeat and R8 kits)

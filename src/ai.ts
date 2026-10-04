@@ -24,7 +24,28 @@ export type PlanSet = { plans: Blueprint[]; model: string }
 export type LyricDraft = { lines: string[]; tip: string; model: string }
 export type Coaching = { good: string; tip: string; model: string }
 
-async function ask<T>(task: 'blueprint' | 'lyrics' | 'coach', payload: unknown): Promise<T> {
+/** Settings the producer may change. Every value is already checked by the server. */
+export type ProducerChanges = Partial<{
+  genre: GenreId
+  feeling: Feeling
+  bpm: number
+  swing: number
+  kit: KitId
+  kick: string
+  snare: string
+  hat: string
+  fill: boolean
+  chords: string[]
+  chordInst: ChordInstId
+  bass: BassId
+  lead: LeadId
+  extras: ExtraId[]
+  topic: string
+}>
+export type ProducerReply = { heard: string; reply: string; part: '' | 'verse' | 'chorus' | 'both'; changes: ProducerChanges; goTo: string; model: string }
+export type Cover = { image: string; model: string }
+
+async function ask<T>(task: 'blueprint' | 'lyrics' | 'coach' | 'producer' | 'cover', payload: unknown): Promise<T> {
   const r = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task, payload }) })
   const data = await r.json().catch(() => ({ error: 'Gemini sent an unreadable reply.' }))
   if (!r.ok) throw new Error(data.error || 'Gemini is unavailable right now.')
@@ -38,6 +59,13 @@ export const writeLyrics = (payload: { genre: string; feeling: Feeling; topic: s
 
 export const coachTake = (payload: { kind: 'beat' | 'melody'; samples: Float32Array; sampleRate: number; bpm: number; genre: string; feeling: Feeling; target: string }) =>
   ask<Coaching>('coach', { kind: payload.kind, bpm: payload.bpm, genre: payload.genre, feeling: payload.feeling, target: payload.target, audio: toWav16k(payload.samples, payload.sampleRate) })
+
+/** Talk to the producer: send what the user said (audio) or typed, plus the current song, and get back changes. */
+export const askProducer = (p: { samples?: Float32Array; sampleRate?: number; text?: string; state: unknown; step: string }) =>
+  ask<ProducerReply>('producer', { text: p.text, state: p.state, step: p.step, audio: p.samples ? toWav16k(p.samples, p.sampleRate ?? 48000) : undefined })
+
+/** Paint an album cover for this song with Gemini's image model. */
+export const makeCover = (p: { title: string; genre: string; feeling: Feeling; topic: string; lyrics: string[] }) => ask<Cover>('cover', p)
 
 /** Downsample a recording to 16 kHz mono 16-bit WAV and return it as base64, small enough to send to Gemini. */
 function toWav16k(samples: Float32Array, sampleRate: number): string {
