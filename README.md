@@ -26,4 +26,4 @@ How each feature works: `docs/TECHNOLOGY.md`. Learning design: `docs/LEARNING_DE
 
 ## Setup for Gemini
 - Local development: nothing to do if `gcloud auth login` works; the dev server calls Vertex AI with your gcloud credentials.
-- Deployed site: add a Gemini API key from Google AI Studio as `GEMINI_API_KEY` in Vercel (`vercel env add GEMINI_API_KEY production`).
+- Deployed site: no key. Vercel signs a short-lived OIDC token, Google Workload Identity Federation swaps it for a token of the `songmaker-vercel` service account (role: Vertex AI User only). Pool and provider are both named `vercel` in the Google Cloud project; only the Vercel project `songmaker` is allowed. `GEMINI_API_KEY` (AI Studio) is an optional fallback.
