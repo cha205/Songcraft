@@ -371,11 +371,12 @@ export function setSwing(swing: number) {
   Tone.getTransport().swingSubdivision = '8n'
 }
 
-export async function play() {
+/** Play the loop, optionally starting from a step (0 to 63) so you can jump to any point in the timeline. */
+export async function play(fromStep = 0) {
   await ensure()
   const t = Tone.getTransport()
   t.stop()
-  t.position = 0
+  t.ticks = Math.round((Math.max(0, Math.min(STEPS - 1, fromStep)) * t.PPQ) / 4)
   mode = 'play'
   arrangement = null
   t.start('+0.05')

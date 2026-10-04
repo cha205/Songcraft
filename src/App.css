@@ -902,3 +902,10 @@ img.icon.spin { animation: spin 2.4s linear infinite; }
 .drop-card { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 56px; border-radius: 30px; background: #fff; border: 4px dashed var(--mood); box-shadow: 0 30px 80px rgba(10, 6, 40, 0.5); text-align: center; }
 .drop-card b { font-family: var(--display); font-size: 30px; font-weight: 800; color: var(--navy); }
 .drop-card small { font-size: 16px; font-weight: 800; color: var(--navy-2); }
+
+/* Timeline ruler: click to play from that point */
+.roll .ruler .cell.tick { background: transparent; box-shadow: none; height: 26px; font-size: 12px; font-weight: 900; color: var(--muted); cursor: pointer; padding: 0; display: grid; place-items: center; border-radius: 8px; }
+.roll .ruler .cell.tick.beat { color: var(--navy-2); }
+.roll .ruler .cell.tick:hover { background: var(--mood-soft); color: var(--mood-d); }
+.roll .ruler .cell.tick.now { background: var(--mood); color: #fff; }
+.roll .ruler .row-label b { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mood-d); }

@@ -29,6 +29,7 @@ type Props = {
   busy: boolean
   onRecord: () => Promise<boolean>
   onUpload: (file: File) => Promise<boolean>
+  onSeek: (step: number) => void
   onFreeHum: () => Promise<boolean>
   humLive: boolean
   dropping: boolean
@@ -162,7 +163,7 @@ export function TuneStep(p: Props) {
               whole melody with your beat.
             </Coach>
             <div className="big-actions top">{playBtn('Play my melody')}</div>
-            <PianoRoll notes={p.notes} step={p.playing ? p.step : -1} onChange={p.onEdit} />
+            <PianoRoll notes={p.notes} step={p.playing ? p.step : -1} onChange={p.onEdit} onSeek={p.onSeek} />
             <div className="note-builder">
               {room > 0 ? (
                 <>
@@ -302,7 +303,7 @@ export function TuneStep(p: Props) {
             <Coach icon="knob">Polish your melody: tap the grid to add or remove notes, and ask Gemini for ideas. You decide which ideas to use.</Coach>
             {p.info && <p className="notice good">{p.info}</p>}
             <div className="big-actions top">{playBtn('Play my melody')}</div>
-            <PianoRoll notes={p.notes} step={p.playing ? p.step : -1} onChange={p.onEdit} />
+            <PianoRoll notes={p.notes} step={p.playing ? p.step : -1} onChange={p.onEdit} onSeek={p.onSeek} />
             <div className="melody-tips">
               {!tips && (
                 <button className="btn violet" onClick={askTips} disabled={tipsBusy || !p.notes.length}>

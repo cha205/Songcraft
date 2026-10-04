@@ -305,6 +305,12 @@ export default function App() {
     await play()
     setPlaying(true)
   }
+  /** Start the loop from a point in the timeline (a 16th-note step). */
+  const playFrom = async (step: number) => {
+    setSongPlaying(false)
+    await play(step)
+    setPlaying(true)
+  }
   const goTo = (i: number) => {
     halt()
     setStepIdx(i)
@@ -939,6 +945,7 @@ export default function App() {
             busy={!!busy}
             onRecord={recordHum}
             onUpload={uploadHum}
+            onSeek={playFrom}
             onFreeHum={freeHum}
             humLive={humLive}
             onCoach={() => coach('melody')}

@@ -4,9 +4,9 @@ import type { Note } from '../audio/analysis'
 // Rows: the C major notes from C6 down to C4.
 const ROWS = [84, 83, 81, 79, 77, 76, 74, 72, 71, 69, 67, 65, 64, 62, 60]
 
-type Props = { notes: Note[]; step: number; onChange?: (notes: Note[]) => void; fit?: boolean }
+type Props = { notes: Note[]; step: number; onChange?: (notes: Note[]) => void; fit?: boolean; onSeek?: (step: number) => void }
 
-export function PianoRoll({ notes, step, onChange, fit }: Props) {
+export function PianoRoll({ notes, step, onChange, fit, onSeek }: Props) {
   // Read-only views only show the rows the melody uses (plus one either side), so the grid stays short.
   const used = ROWS.map((m, i) => (notes.some((n) => n.midi === m) ? i : -1)).filter((i) => i >= 0)
   const rows = fit && used.length ? ROWS.slice(Math.max(0, Math.min(...used) - 1), Math.max(...used) + 2) : ROWS
@@ -20,6 +20,24 @@ export function PianoRoll({ notes, step, onChange, fit }: Props) {
   return (
     <div className="grid-wrap">
       <div className="grid roll">
+        {onSeek && (
+          <div className="row ruler">
+            <div className="row-label key">
+              <b>Play</b>
+            </div>
+            {Array.from({ length: STEPS }, (_, s) => (
+              <button
+                key={s}
+                className={['cell', 'tick', s % 4 === 0 && 'beat', s % 16 === 0 && s > 0 && 'bar', s === step && 'now'].filter(Boolean).join(' ')}
+                onClick={() => onSeek(s)}
+                aria-label={`Play from bar ${Math.floor(s / 16) + 1}, beat ${Math.floor((s % 16) / 4) + 1}`}
+                title={`Play from bar ${Math.floor(s / 16) + 1}, beat ${Math.floor((s % 16) / 4) + 1}`}
+              >
+                {s % 16 === 0 ? Math.floor(s / 16) + 1 : s % 4 === 0 ? '\u00b7' : ''}
+              </button>
+            ))}
+          </div>
+        )}
         {rows.map((midi) => (
           <div className={`row${midi % 12 === 0 ? ' c-row' : ''}`} key={midi}>
             <div className="row-label key">
