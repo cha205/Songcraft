@@ -3,15 +3,21 @@ import type { Note } from '../audio/analysis'
 import { Coach } from '../components/Guide'
 import { Icon } from '../components/Icon'
 import { StepHead } from '../components/StepHead'
-import { LYRIC_PROMPTS } from '../data/templates'
-import type { VibeId } from '../data/templates'
+import { LYRIC_PROMPTS } from '../data/genres'
+import type { Feeling } from '../data/genres'
 import { syllables } from '../lyrics'
 
 type Props = {
-  vibe: VibeId
+  feeling: Feeling
   notes: Note[]
   lyrics: string[]
   onLyrics: (l: string[]) => void
+  topic: string
+  onTopic: (t: string) => void
+  onWrite: () => void
+  aiBusy: boolean
+  aiError: string
+  aiTip: string
   step: number
   playing: boolean
   onPlay: () => void
@@ -28,13 +34,37 @@ export function LyricsStep(p: Props) {
       </StepHead>
 
       <div className="card stage-card">
-        <Coach icon="notebook">Write one short line for each bar. The counter turns green when your line fits the notes.</Coach>
+        <Coach icon="notebook">Write one short line for each bar, or let Gemini draft them for you. The counter turns green when a line fits the notes.</Coach>
+        <div className="ai-lyrics">
+          <input className="input" value={p.topic} maxLength={80} placeholder="What is your song about?" onChange={(e) => p.onTopic(e.target.value)} aria-label="Song topic" />
+          <button className="btn violet lg" onClick={p.onWrite} disabled={p.aiBusy}>
+            <Icon name="wand" size={26} /> {p.aiBusy ? 'Writing' : 'Write with Gemini'}
+          </button>
+        </div>
         <div className="prompts">
-          <span className="mini-label">Need an idea? Write about</span>
-          {LYRIC_PROMPTS[p.vibe].map((t) => (
-            <span key={t} className="pill">{t}</span>
+          <span className="mini-label">Ideas</span>
+          {LYRIC_PROMPTS[p.feeling].map((t) => (
+            <button key={t} className="example" onClick={() => p.onTopic(t)}>
+              {t}
+            </button>
           ))}
         </div>
+        {p.aiBusy && (
+          <div className="ai-wait">
+            <span className="ai-dots">
+              <i />
+              <i />
+              <i />
+            </span>
+            Gemini is writing lines that fit your melody.
+          </div>
+        )}
+        {p.aiError && <p className="notice">{p.aiError}</p>}
+        {p.aiTip && !p.aiBusy && (
+          <p className="note">
+            <Icon name="bulb" size={22} /> {p.aiTip}
+          </p>
+        )}
         <div className="lyric-lines">
           {Array.from({ length: BARS }, (_, b) => {
             const target = p.notes.filter((n) => n.start >= b * 16 && n.start < b * 16 + 16).length
@@ -67,7 +97,7 @@ export function LyricsStep(p: Props) {
             </button>
           )}
           <button className="btn green lg" onClick={p.onDone}>
-            <Icon name="star" size={26} /> Finish my song
+            <Icon name="check" size={26} /> Finish my song
           </button>
         </div>
       </div>

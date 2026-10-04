@@ -1,14 +1,18 @@
 import { Coach } from '../components/Guide'
 import { Icon } from '../components/Icon'
 import { StepHead } from '../components/StepHead'
-import { PROGRESSIONS } from '../data/templates'
-import type { Template, VibeId } from '../data/templates'
+import { BASSES, CHORD_INSTS, FEELING_INFO } from '../data/genres'
+import type { BassId, ChordInstId, Feeling, Genre } from '../data/genres'
 
 type Props = {
-  vibe: VibeId
-  template: Template
+  genre: Genre
+  feeling: Feeling
   chords: string[]
   onChords: (c: string[]) => void
+  chordInst: ChordInstId
+  onChordInst: (c: ChordInstId) => void
+  bass: BassId
+  onBass: (b: BassId) => void
   step: number
   playing: boolean
   onPlay: () => void
@@ -19,27 +23,29 @@ type Props = {
 const isMinor = (c: string) => c.endsWith('m')
 
 export function ChordsStep(p: Props) {
+  const other: Feeling = p.feeling === 'bright' ? 'dark' : 'bright'
   const options = [
-    { chords: p.template.chords, why: p.template.chordsWhy, from: p.template.ref?.title ?? '' },
-    ...PROGRESSIONS[p.vibe].map((o) => ({ ...o, from: '' })),
+    ...p.genre.chords[p.feeling].map((o, i) => ({ ...o, tag: i === 0 ? `Fits ${p.genre.name}` : '' })),
+    ...p.genre.chords[other].map((o) => ({ ...o, tag: `${FEELING_INFO[other].name} version` })),
   ]
   const bar = p.playing && p.step >= 0 ? Math.floor(p.step / 16) : -1
   const same = (a: string[], b: string[]) => a.join() === b.join()
   return (
     <section className="step">
-      <StepHead icon="keys" title="Choose the chords">
-        Chords are groups of notes that set the feeling of a song. Your song uses four, one for each bar of the beat.
+      <StepHead icon="keys" title="Choose the chords and bass">
+        Chords are groups of notes played together. They decide whether a song sounds happy or sad. The bass plays the lowest note of
+        each chord and ties it to the drums.
       </StepHead>
 
       <div className="card stage-card">
-        <Coach icon="keys">Press play to hear these chords with your beat. Pick another set below if you want a different feel.</Coach>
+        <Coach icon="keys">Press play, then try the other chord sets. Listen for how the bright and dark versions change the mood.</Coach>
         <div className="chord-row">
           {p.chords.map((c, i) => (
             <div key={i} className={`chord${isMinor(c) ? ' minor' : ' major'}${bar === i ? ' now' : ''}`}>
               <span className="chord-bar">Bar {i + 1}</span>
               <b>{c}</b>
               <span className="chord-mood">
-                <Icon name={isMinor(c) ? 'sad' : 'happy'} size={22} /> {isMinor(c) ? 'Darker' : 'Brighter'}
+                <Icon name={isMinor(c) ? 'dark' : 'bright'} size={22} /> {isMinor(c) ? 'Minor, darker' : 'Major, brighter'}
               </span>
             </div>
           ))}
@@ -51,15 +57,12 @@ export function ChordsStep(p: Props) {
             </button>
           ) : (
             <button className="btn green xl" onClick={p.onPlay}>
-              <Icon name="play" size={30} /> Play chords with my beat
+              <Icon name="play" size={30} /> Play with my beat
             </button>
           )}
         </div>
-        <p className="note">
-          <Icon name="bulb" size={22} /> Songmaker adds a bass line for you. It follows the chords and your kick drum.
-        </p>
 
-        <span className="mini-label">Other chords for this mood</span>
+        <span className="mini-label">Chord sets</span>
         <div className="prog-list">
           {options.map((o, i) => (
             <button key={i} className={`prog-card${same(o.chords, p.chords) ? ' on' : ''}`} onClick={() => p.onChords(o.chords)}>
@@ -69,13 +72,41 @@ export function ChordsStep(p: Props) {
                 ))}
               </span>
               <span className="prog-why">{o.why}</span>
-              {o.from && <span className="pill">From {o.from}</span>}
+              {o.tag && <span className="pill">{o.tag}</span>}
             </button>
           ))}
         </div>
+
+        <div className="two-col">
+          <div>
+            <span className="mini-label">Play the chords on</span>
+            <div className="inst-row">
+              {CHORD_INSTS.map((c) => (
+                <button key={c.id} className={`inst${p.chordInst === c.id ? ' on' : ''}`} onClick={() => p.onChordInst(c.id)}>
+                  <Icon name={c.icon} size={44} />
+                  <span>{c.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className="mini-label">Bass style</span>
+            <div className="bass-list">
+              {BASSES.map((b) => (
+                <button key={b.id} className={`bass-opt${p.bass === b.id ? ' on' : ''}`} onClick={() => p.onBass(b.id)}>
+                  <Icon name={b.id === 'sub' ? 'subwoofer' : 'bassguitar'} size={36} />
+                  <span>
+                    <b>{b.name}</b>
+                    <small>{b.why}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
         <div className="stage-foot end">
           <button className="btn green lg" onClick={p.onDone}>
-            <Icon name="star" size={26} /> Use these chords
+            <Icon name="check" size={26} /> Use these chords
           </button>
         </div>
       </div>

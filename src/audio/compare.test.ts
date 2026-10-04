@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { emptyDrums } from './analysis'
 import { beatTips, compareBeats, countWords } from './compare'
-import { TEMPLATES, templateGrid } from '../data/templates'
+import { GENRES, gridFrom } from '../data/genres'
 
 describe('compareBeats', () => {
-  const target = templateGrid(TEMPLATES.find((t) => t.id === 'happy-pop')!)
+  const target = gridFrom('heartbeat', 'backbeat', 'eighth')
 
   it('scores a perfect copy 100', () => {
     expect(compareBeats(target, target).score).toBe(100)
@@ -38,12 +38,14 @@ describe('countWords', () => {
   })
 })
 
-describe('templates', () => {
-  it('every template has 4 chords and a tempo the engine supports', () => {
-    for (const t of TEMPLATES) {
-      expect(t.chords).toHaveLength(4)
-      expect(t.bpm).toBeGreaterThanOrEqual(60)
-      expect(t.bpm).toBeLessThanOrEqual(160)
+describe('genres', () => {
+  it('every genre has four chords per set and tempos the engine supports', () => {
+    for (const g of GENRES) {
+      for (const f of ['bright', 'dark'] as const) {
+        for (const p of g.chords[f]) expect(p.chords).toHaveLength(4)
+        expect(g.bpm[f]).toBeGreaterThanOrEqual(60)
+        expect(g.bpm[f]).toBeLessThanOrEqual(160)
+      }
     }
   })
 })

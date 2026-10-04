@@ -1,24 +1,23 @@
 import { useState } from 'react'
 import type { Note } from '../audio/analysis'
-import type { Instrument } from '../audio/engine'
 import { Coach, MicButton, StageTabs } from '../components/Guide'
 import { Icon } from '../components/Icon'
 import { PianoRoll } from '../components/PianoRoll'
 import { StepHead } from '../components/StepHead'
-import { EXAMPLE_TUNES } from '../data/templates'
-import type { VibeId } from '../data/templates'
+import { EXAMPLE_TUNES, LEADS } from '../data/genres'
+import type { Feeling, LeadId } from '../data/genres'
 
 type Stage = 'listen' | 'record' | 'review'
 
 type Props = {
-  vibe: VibeId
+  feeling: Feeling
   notes: Note[]
   example: Note[]
   myNotes: Note[] | null
   onEdit: (n: Note[]) => void
   onChoice: (c: 'example' | 'mine') => void
-  instrument: Instrument
-  onInstrument: (i: Instrument) => void
+  instrument: LeadId
+  onInstrument: (i: LeadId) => void
   step: number
   playing: boolean
   onPlay: () => void
@@ -35,11 +34,6 @@ const STAGES: { id: Stage; label: string }[] = [
   { id: 'listen', label: 'Listen' },
   { id: 'record', label: 'Record' },
   { id: 'review', label: 'Review' },
-]
-const INSTRUMENTS: { id: Instrument; label: string }[] = [
-  { id: 'piano', label: 'Piano' },
-  { id: 'synth', label: 'Synth' },
-  { id: 'bells', label: 'Bells' },
 ]
 
 export function TuneStep(p: Props) {
@@ -63,10 +57,11 @@ export function TuneStep(p: Props) {
       </button>
     )
   const instrumentPicker = (
-    <div className="seg" role="group" aria-label="Instrument">
-      {INSTRUMENTS.map((i) => (
-        <button key={i.id} className={p.instrument === i.id ? 'on' : ''} onClick={() => p.onInstrument(i.id)}>
-          {i.label}
+    <div className="inst-row" role="group" aria-label="Instrument">
+      {LEADS.map((i) => (
+        <button key={i.id} className={`inst${p.instrument === i.id ? ' on' : ''}`} onClick={() => p.onInstrument(i.id)}>
+          <Icon name={i.icon} size={40} />
+          <span>{i.name}</span>
         </button>
       ))}
     </div>
@@ -75,8 +70,8 @@ export function TuneStep(p: Props) {
   return (
     <section className="step">
       <StepHead icon="mic" title="Hum the melody">
-        The melody is the part of a song people sing along to. You hum it, and Songmaker plays it on a real instrument, on the beat and
-        in key.
+        The melody is the part of a song people sing along to. You hum it, and Songmaker plays it on a real instrument such as piano,
+        flute or violin, on the beat and in key.
       </StepHead>
 
       <div className="card stage-card">
@@ -91,7 +86,7 @@ export function TuneStep(p: Props) {
             </div>
             <PianoRoll notes={p.example} step={p.playing ? p.step : -1} fit />
             <p className="note">
-              <Icon name="bulb" size={22} /> {EXAMPLE_TUNES[p.vibe].tip}
+              <Icon name="bulb" size={22} /> {EXAMPLE_TUNES[p.feeling].tip}
             </p>
             <div className="stage-foot">
               <button className="link-btn" onClick={() => { p.onChoice('example'); p.onDone() }}>

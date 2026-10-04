@@ -1,6 +1,6 @@
 # Songmaker
 
-Learn how hit songs are built, then make your own with your voice. Pick a vibe, study the beat and chords of a famous song in that vibe, beatbox and hum your own version, add lyrics, and export a finished song. For people who have never made music.
+Make a real song with your voice, and learn how songs are built while you do it. Describe your song to Gemini or pick a genre and a feeling, build a beat one drum at a time, choose chords and bass, hum a melody, add instruments, write lyrics with Gemini, and download the finished song. For people who have never made music, with full controls for people who have.
 
 ## Run locally
 ```
@@ -12,13 +12,18 @@ npm run dev
 - Vite, React, TypeScript, oxlint, Vitest
 - Tone.js (instruments, timing, playback)
 - pitchy (pitch detection, McLeod method)
-- Salamander Grand Piano samples by Alexander Holm (CC BY 3.0), loaded from the Tone.js sample CDN
-- M PLUS Rounded 1c font (Google Fonts)
-- Art and icons generated with Google Vertex AI (gemini-3-pro-image), scripts in `tools/`
+- Google Gemini through Vertex AI / the Gemini API: `gemini-3.1-pro-preview` (fallbacks `gemini-3.6-flash`, `gemini-2.5-flash`) for song planning and lyrics
+- Salamander Grand Piano samples by Alexander Holm (CC BY 3.0), via the Tone.js sample CDN
+- tonejs-instruments samples by Nicholaus Brosowsky (flute, violin, cello, acoustic guitar; CC BY 3.0)
+- Tone.js drum samples (acoustic, 808, CR78, LINN, Techno, breakbeat and R8 kits)
+- Baloo 2 and Nunito fonts (Google Fonts)
+- Art and icons generated with Google Vertex AI (`gemini-3-pro-image`), processed with Python (NumPy, Pillow, SciPy), scripts in `tools/`
+- Vercel (hosting and the Gemini serverless function)
 - Claude Code (AI coding assistant)
 
+How each feature works: `docs/TECHNOLOGY.md`. Learning design: `docs/LEARNING_DESIGN.md`.
 
-## Reference songs
-Templates use only tempo, simplified drum patterns and chord progressions of these songs (no audio, melody or lyrics):
-Fix You (Coldplay), Stay With Me (Sam Smith), Sunflower (Post Malone, Swae Lee), Billie Jean (Michael Jackson),
-Stayin' Alive (Bee Gees), We Will Rock You (Queen), Lose Yourself (Eminem). Example tunes are original.
+
+## Setup for Gemini
+- Local development: nothing to do if `gcloud auth login` works; the dev server calls Vertex AI with your gcloud credentials.
+- Deployed site: add a Gemini API key from Google AI Studio as `GEMINI_API_KEY` in Vercel (`vercel env add GEMINI_API_KEY production`).

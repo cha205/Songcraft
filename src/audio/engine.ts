@@ -2,26 +2,36 @@
 // sample-accurate timestamps so recorded sounds line up with the beat grid.
 import * as Tone from 'tone'
 import { BARS, STEPS, bassMidi, chordMidis, emptyDrums, stepSeconds } from './analysis'
-import type { DrumGrid, Note } from './analysis'
+import type { Note } from './analysis'
+import { KITS } from '../data/genres'
+import type { BassId, ChordInstId, ExtraId, KitId, LeadId } from '../data/genres'
 
-export type Instrument = 'piano' | 'synth' | 'bells'
-
-/** Which parts are audible. `double` adds the tune an octave up on bells (used in choruses). */
-export type Layers = { drums: boolean; chords: boolean; bass: boolean; melody: boolean; double?: boolean }
-export const ALL: Layers = { drums: true, chords: true, bass: true, melody: true }
+/** Which parts are audible. `double` adds the melody an octave up on bells (used in choruses). */
+export type Layers = { drums: boolean; chords: boolean; bass: boolean; melody: boolean; double?: boolean; extras?: boolean }
+export const ALL: Layers = { drums: true, chords: true, bass: true, melody: true, extras: true }
+/** One 4-bar section of the full song: which drum pattern it uses and which parts play. */
+export type SectionPlan = { kind: 'verse' | 'chorus'; layers: Layers }
 
 /** The song the sequencer reads on every step. React writes into it; the audio thread never waits on React. */
-export const song: {
-  bpm: number
-  drums: DrumGrid
-  notes: Note[]
-  chords: string[] | null
-  instrument: Instrument
-  layers: Layers
-} = { bpm: 90, drums: emptyDrums(), notes: [], chords: null, instrument: 'piano', layers: ALL }
+export const song = {
+  bpm: 90,
+  swing: 0,
+  kit: 'acoustic' as KitId,
+  verse: emptyDrums(),
+  chorus: emptyDrums(),
+  fill: false,
+  part: 'verse' as 'verse' | 'chorus',
+  notes: [] as Note[],
+  chords: null as string[] | null,
+  lead: 'piano' as LeadId,
+  chordInst: 'pad' as ChordInstId,
+  bass: 'roots' as BassId,
+  extras: [] as ExtraId[],
+  layers: ALL,
+}
 
-// Full-song mode: one Layers entry per 4-bar section.
-let arrangement: Layers[] | null = null
+// Full-song mode: one plan per 4-bar section.
+let arrangement: SectionPlan[] | null = null
 let section = -1
 let onSection: (i: number) => void = () => {}
 let songDone: (() => void) | null = null
@@ -37,63 +47,168 @@ let seq: Tone.Sequence<number> | null = null
 
 const freq = (midi: number) => Tone.Frequency(midi, 'midi').toFrequency()
 
+// Real instrument samples (tonejs-instruments, CC BY 3.0) and drum kits (Tone.js drum-samples).
+const NB = 'https://nbrosowsky.github.io/tonejs-instruments/samples/'
+const SAMPLED: Record<'flute' | 'violin' | 'cello' | 'guitar', { folder: string; notes: string[]; volume: number }> = {
+  flute: { folder: 'flute', notes: ['C4', 'E4', 'A4', 'C5', 'E5', 'A5', 'C6', 'E6', 'A6', 'C7'], volume: -6 },
+  violin: { folder: 'violin', notes: ['G3', 'A3', 'C4', 'E4', 'G4', 'A4', 'C5', 'E5', 'G5', 'A5', 'C6', 'E6', 'G6', 'A6', 'C7'], volume: -8 },
+  cello: { folder: 'cello', notes: ['C2', 'E2', 'G2', 'A2', 'C3', 'E3', 'G3', 'A3', 'C4', 'E4', 'G4', 'A4', 'C5'], volume: -8 },
+  guitar: { folder: 'guitar-acoustic', notes: ['E2', 'G2', 'A2', 'C3', 'E3', 'G3', 'A3', 'C4', 'E4', 'G4', 'A4', 'C5'], volume: -4 },
+}
+const samplers: Partial<Record<keyof typeof SAMPLED, Tone.Sampler>> = {}
+const kits: Partial<Record<KitId, Tone.Players>> = {}
+
 function build() {
-  // Keep the mix from clipping when drums, chords, bass and two melody layers all hit at once.
+  // Keep the mix from clipping when every part hits at once.
   Tone.getDestination().chain(new Tone.Limiter(-1))
   const reverb = new Tone.Reverb({ decay: 2.5, wet: 0.25 }).toDestination()
-  const kick = new Tone.MembraneSynth({
-    pitchDecay: 0.05,
-    octaves: 6,
-    envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.1 },
-  }).toDestination()
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 6, envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.1 } }).toDestination()
   kick.volume.value = -2
-  const snare = new Tone.NoiseSynth({ envelope: { attack: 0.001, decay: 0.18, sustain: 0 } }).connect(
-    new Tone.Filter(1200, 'highpass').toDestination(),
-  )
+  const snare = new Tone.NoiseSynth({ envelope: { attack: 0.001, decay: 0.18, sustain: 0 } }).connect(new Tone.Filter(1200, 'highpass').toDestination())
   snare.volume.value = -8
-  const hat = new Tone.NoiseSynth({ envelope: { attack: 0.001, decay: 0.05, sustain: 0 } }).connect(
-    new Tone.Filter(7000, 'highpass').toDestination(),
-  )
+  const hat = new Tone.NoiseSynth({ envelope: { attack: 0.001, decay: 0.05, sustain: 0 } }).connect(new Tone.Filter(7000, 'highpass').toDestination())
   hat.volume.value = -14
   // Unpitched tick so it never fools the hum pitch detector.
-  const click = new Tone.NoiseSynth({ envelope: { attack: 0.001, decay: 0.02, sustain: 0 } }).connect(
-    new Tone.Filter(3000, 'bandpass').toDestination(),
-  )
+  const click = new Tone.NoiseSynth({ envelope: { attack: 0.001, decay: 0.02, sustain: 0 } }).connect(new Tone.Filter(3000, 'bandpass').toDestination())
   click.volume.value = -4
   const piano = new Tone.Sampler({
     urls: { C2: 'C2.mp3', C3: 'C3.mp3', 'D#3': 'Ds3.mp3', 'F#3': 'Fs3.mp3', A3: 'A3.mp3', C4: 'C4.mp3', 'D#4': 'Ds4.mp3', 'F#4': 'Fs4.mp3', A4: 'A4.mp3', C5: 'C5.mp3', 'D#5': 'Ds5.mp3', 'F#5': 'Fs5.mp3', A5: 'A5.mp3', C6: 'C6.mp3' },
     baseUrl: 'https://tonejs.github.io/audio/salamander/',
     release: 1,
   }).connect(reverb)
-  const synth = new Tone.PolySynth(Tone.Synth, {
-    oscillator: { type: 'sawtooth' },
-    envelope: { attack: 0.02, decay: 0.2, sustain: 0.6, release: 0.3 },
-  }).connect(new Tone.Filter(2200, 'lowpass').connect(reverb))
+  const synth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.02, decay: 0.2, sustain: 0.6, release: 0.3 } }).connect(
+    new Tone.Filter(2200, 'lowpass').connect(reverb),
+  )
   synth.volume.value = -10
-  const bells = new Tone.PolySynth(Tone.FMSynth, {
-    harmonicity: 3.01,
-    modulationIndex: 10,
-    envelope: { attack: 0.001, decay: 1.2, sustain: 0, release: 1 },
-  }).connect(reverb)
+  const bells = new Tone.PolySynth(Tone.FMSynth, { harmonicity: 3.01, modulationIndex: 10, envelope: { attack: 0.001, decay: 1.2, sustain: 0, release: 1 } }).connect(reverb)
   bells.volume.value = -8
-  const pad = new Tone.PolySynth(Tone.Synth, {
-    oscillator: { type: 'triangle' },
-    envelope: { attack: 0.3, decay: 0.3, sustain: 0.6, release: 1.2 },
-  }).connect(new Tone.Filter(1400, 'lowpass').connect(reverb))
+  const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.3, decay: 0.3, sustain: 0.6, release: 1.2 } }).connect(
+    new Tone.Filter(1400, 'lowpass').connect(reverb),
+  )
   pad.volume.value = -16
+  const pluck = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.002, decay: 0.18, sustain: 0, release: 0.2 } }).connect(reverb)
+  pluck.volume.value = -14
   const bass = new Tone.MonoSynth({
     oscillator: { type: 'triangle' },
     envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.2 },
     filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.4, baseFrequency: 200, octaves: 2 },
   }).toDestination()
   bass.volume.value = -8
-  return { kick, snare, hat, click, piano, synth, bells, pad, bass }
+  const sub = new Tone.MonoSynth({
+    oscillator: { type: 'sine' },
+    portamento: 0.04,
+    envelope: { attack: 0.005, decay: 0.9, sustain: 0.3, release: 0.4 },
+    filterEnvelope: { attack: 0.005, decay: 0.3, sustain: 1, baseFrequency: 300, octaves: 1 },
+  }).toDestination()
+  sub.volume.value = -3
+  const drumBus = new Tone.Volume(-2).toDestination()
+  return { kick, snare, hat, click, piano, synth, bells, pad, pluck, bass, sub, reverb, drumBus }
+}
+
+function sampler(name: keyof typeof SAMPLED): Tone.Sampler | null {
+  if (!inst) return null
+  if (!samplers[name]) {
+    const s = SAMPLED[name]
+    samplers[name] = new Tone.Sampler({
+      urls: Object.fromEntries(s.notes.map((n) => [n, `${n}.mp3`])),
+      baseUrl: `${NB}${s.folder}/`,
+      release: 1,
+      volume: s.volume,
+    }).connect(inst.reverb)
+  }
+  const sm = samplers[name]!
+  return sm.loaded ? sm : null
+}
+
+function kit(id: KitId): Tone.Players | null {
+  if (!inst) return null
+  if (!kits[id]) {
+    const folder = KITS.find((k) => k.id === id)?.folder ?? 'acoustic-kit'
+    const base = `https://tonejs.github.io/audio/drum-samples/${folder}/`
+    const p = new Tone.Players({ kick: `${base}kick.mp3`, snare: `${base}snare.mp3`, hihat: `${base}hihat.mp3` }).connect(inst.drumBus)
+    kits[id] = p
+  }
+  const p = kits[id]!
+  return p.loaded ? p : null
+}
+
+/** Start downloading the samples a song needs, so they are ready when it plays. */
+export async function preload(opts: { kit?: KitId; lead?: LeadId; chordInst?: ChordInstId; extras?: ExtraId[] }) {
+  await ensure(false)
+  if (opts.kit) kit(opts.kit)
+  const names = new Set<keyof typeof SAMPLED>()
+  if (opts.lead === 'flute' || opts.lead === 'violin' || opts.lead === 'guitar') names.add(opts.lead)
+  if (opts.chordInst === 'guitar' || opts.extras?.includes('guitar')) names.add('guitar')
+  if (opts.chordInst === 'strings' || opts.extras?.includes('strings')) names.add('violin').add('cello')
+  if (opts.extras?.includes('flute')) names.add('flute')
+  names.forEach((n) => sampler(n))
+}
+
+function hitDrum(d: 'kick' | 'snare' | 'hat', time: number, vel = 1) {
+  if (!inst) return
+  const players = kit(song.kit)
+  if (players) {
+    const p = players.player(d === 'hat' ? 'hihat' : d)
+    p.volume.value = (d === 'hat' ? -7 : 0) + 20 * Math.log10(vel)
+    p.start(time)
+    return
+  }
+  if (d === 'kick') inst.kick.triggerAttackRelease('C1', '8n', time, vel)
+  else if (d === 'snare') inst.snare.triggerAttackRelease('16n', time, vel)
+  else inst.hat.triggerAttackRelease('32n', time, vel)
+}
+
+function playLead(midi: number, dur: number, time: number, vel = 1) {
+  if (!inst) return
+  const l = song.lead
+  const s = l === 'flute' || l === 'violin' || l === 'guitar' ? sampler(l) : null
+  if (s) s.triggerAttackRelease(freq(midi), dur, time, vel)
+  else if (l === 'piano' && inst.piano.loaded) inst.piano.triggerAttackRelease(freq(midi), dur, time, vel)
+  else if (l === 'bells') inst.bells.triggerAttackRelease(freq(midi), dur, time, vel)
+  else inst.synth.triggerAttackRelease(freq(midi), dur, time, vel)
+}
+
+function strum(notes: number[], dur: number, time: number, vel: number) {
+  const g = sampler('guitar')
+  notes.forEach((m, i) => (g ? g.triggerAttackRelease(freq(m), dur, time + i * 0.018, vel) : inst!.pluck.triggerAttackRelease(freq(m), dur, time + i * 0.018, vel * 0.8)))
+}
+
+function playStrings(chord: string, dur: number, time: number, vel: number) {
+  const v = sampler('violin')
+  const c = sampler('cello')
+  const tones = chordMidis(chord).map((m) => m + 12)
+  if (v) tones.forEach((m) => v.triggerAttackRelease(freq(m), dur, time, vel * 0.7))
+  else inst!.pad.triggerAttackRelease(tones.map(freq), dur, time, vel)
+  if (c) c.triggerAttackRelease(freq(bassMidi(chord) + 12), dur, time, vel * 0.8)
+}
+
+/** Chords on the chosen instrument. Called on every step; each instrument decides when to play. */
+function playChords(kind: ChordInstId | ExtraId, chord: string, step: number, time: number, bar: number, vel: number) {
+  const b = step % 16
+  const tones = chordMidis(chord)
+  if (kind === 'piano' && (b === 0 || b === 8)) {
+    if (inst!.piano.loaded) inst!.piano.triggerAttackRelease(tones.map(freq), bar / 2, time, vel * 0.7)
+    else inst!.pad.triggerAttackRelease(tones.map(freq), bar / 2, time, vel)
+  } else if (kind === 'guitar' && [0, 6, 8, 12].includes(b)) {
+    strum([tones[0] - 12, ...tones], bar / 4, time, b === 0 ? vel * 0.8 : vel * 0.55)
+  } else if (kind === 'strings' && b === 0) {
+    playStrings(chord, bar * 0.98, time, vel)
+  } else if (kind === 'pad' && b === 0) {
+    inst!.pad.triggerAttackRelease(tones.map(freq), '1m', time, vel)
+  } else if (kind === 'arp' && b % 2 === 0) {
+    const order = [0, 1, 2, 1]
+    inst!.pluck.triggerAttackRelease(freq(tones[order[(b / 2) % 4]] + 12), '16n', time, vel * 0.6)
+  } else if (kind === 'flute' && (b === 0 || b === 8)) {
+    const f = sampler('flute')
+    const m = (b === 0 ? tones[2] : tones[1]) + 12
+    if (f) f.triggerAttackRelease(freq(m), bar * 0.4, time, vel * 0.6)
+    else inst!.bells.triggerAttackRelease(freq(m), bar * 0.4, time, vel * 0.4)
+  }
 }
 
 function tick(time: number, step: number) {
   if (!inst) return
-  const { drums, notes, chords, instrument, bpm } = song
-  const hasDrums = drums.kick.some(Boolean) || drums.snare.some(Boolean) || drums.hat.some(Boolean)
+  const { notes, chords, bpm } = song
 
   if (arrangement && step === 0) {
     section++
@@ -106,55 +221,81 @@ function tick(time: number, step: number) {
     const i = section
     Tone.getDraw().schedule(() => onSection(i), time)
   }
-  const L = mode === 'play' ? (arrangement ? arrangement[section] : song.layers) : null
+  const plan = arrangement ? arrangement[section] : null
+  const L = mode === 'play' ? (plan ? plan.layers : song.layers) : null
+  const grid = plan ? (plan.kind === 'chorus' ? song.chorus : song.verse) : mode === 'play' && song.part === 'chorus' ? song.chorus : song.verse
+  const hasDrums = grid.kick.some(Boolean) || grid.snare.some(Boolean) || grid.hat.some(Boolean)
+  const barLen = stepSeconds(bpm) * 16
 
   if (mode === 'rec-hum' || L?.drums) {
-    if (drums.kick[step]) inst.kick.triggerAttackRelease('C1', '8n', time)
-    if (drums.snare[step]) inst.snare.triggerAttackRelease('16n', time)
-    if (drums.hat[step]) inst.hat.triggerAttackRelease('32n', time)
+    if (song.fill && step >= 60 && mode === 'play') {
+      // A fill at the end of the loop: four quick snares lead into the next section.
+      if (step === 60) hitDrum('kick', time)
+      hitDrum('snare', time, 0.55 + (step - 60) * 0.15)
+    } else {
+      if (grid.kick[step]) hitDrum('kick', time)
+      if (grid.snare[step]) hitDrum('snare', time)
+      if (grid.hat[step]) hitDrum('hat', time, step % 4 === 0 ? 1 : 0.7)
+    }
   }
   const wantClick = mode !== 'play' && (clickWhileRecording || (mode === 'rec-hum' && !hasDrums))
   if (wantClick && step % 4 === 0) inst.click.triggerAttackRelease('32n', time)
 
   if (L?.melody) {
-    // The piano samples stream in from a CDN; use the synth until they arrive.
-    const lead = instrument === 'piano' && inst.piano.loaded ? inst.piano : instrument === 'bells' ? inst.bells : inst.synth
     for (const n of notes) {
       if (n.start !== step) continue
       const dur = n.len * stepSeconds(bpm) * 0.95
-      lead.triggerAttackRelease(freq(n.midi), dur, time)
+      playLead(n.midi, dur, time)
       if (L.double) inst.bells.triggerAttackRelease(freq(n.midi + 12), dur, time, 0.35)
     }
   }
   if (chords) {
     const chord = chords[Math.floor(step / 16)]
     // While humming, the chords play quietly so they guide the voice without leaking into the mic much.
-    if (step % 16 === 0 && (mode === 'rec-hum' || L?.chords)) {
-      inst.pad.triggerAttackRelease(chordMidis(chord).map(freq), '1m', time, mode === 'rec-hum' ? 0.4 : 1)
+    if (mode === 'rec-hum') {
+      if (step % 16 === 0) inst.pad.triggerAttackRelease(chordMidis(chord).map(freq), '1m', time, 0.4)
+    } else if (L?.chords) {
+      playChords(song.chordInst, chord, step, time, barLen, 1)
+    }
+    if (L?.extras) {
+      for (const e of song.extras) if (e !== song.chordInst) playChords(e, chord, step, time, barLen, 0.8)
     }
     if (L?.bass) {
       const bar = Math.floor(step / 16) * 16
-      const barHasKick = drums.kick.slice(bar, bar + 16).some(Boolean)
-      if (barHasKick ? drums.kick[step] : step % 8 === 0) inst.bass.triggerAttackRelease(freq(bassMidi(chord)), '8n', time)
+      const barHasKick = grid.kick.slice(bar, bar + 16).some(Boolean)
+      const onKick = barHasKick ? grid.kick[step] : step % 8 === 0
+      const root = freq(bassMidi(chord))
+      if (song.bass === 'eighths' && step % 2 === 0) inst.bass.triggerAttackRelease(root, '16n', time, step % 4 === 0 ? 1 : 0.7)
+      else if (song.bass === 'sub' && onKick) inst.sub.triggerAttackRelease(root, stepSeconds(bpm) * 3.5, time)
+      else if (song.bass === 'roots' && onKick) inst.bass.triggerAttackRelease(root, '8n', time)
     }
   }
   Tone.getDraw().schedule(() => onStep(step), time)
 }
 
-async function ensure() {
-  await Tone.start()
+async function ensure(startAudio = true) {
+  if (startAudio) await Tone.start()
   if (!inst) inst = build()
   if (!seq) {
     seq = new Tone.Sequence<number>(tick, Array.from({ length: STEPS }, (_, i) => i), '16n')
     seq.start(0)
   }
-  Tone.getTransport().bpm.value = song.bpm
-  await Promise.race([Tone.loaded(), new Promise((r) => setTimeout(r, 4000))])
+  const t = Tone.getTransport()
+  t.bpm.value = song.bpm
+  t.swing = song.swing
+  t.swingSubdivision = '16n'
+  if (startAudio) await Promise.race([Tone.loaded(), new Promise((r) => setTimeout(r, 4000))])
 }
 
 export function setBpm(bpm: number) {
   song.bpm = bpm
   Tone.getTransport().bpm.value = bpm
+}
+
+export function setSwing(swing: number) {
+  song.swing = swing
+  Tone.getTransport().swing = swing
+  Tone.getTransport().swingSubdivision = '16n'
 }
 
 export async function play() {
@@ -178,7 +319,7 @@ export function stop() {
  * Play the whole arranged song once while capturing the speakers' signal. Resolves with a WAV file, or null if
  * stopped early. `sectionCb` gets each section index as it starts, and -1 at the end.
  */
-export async function playSong(sections: Layers[], sectionCb: (i: number) => void): Promise<Blob | null> {
+export async function playSong(sections: SectionPlan[], sectionCb: (i: number) => void): Promise<Blob | null> {
   await ensure()
   await ensureWorklet()
   stop()
