@@ -793,7 +793,9 @@ img.icon.spin { animation: spin 2.4s linear infinite; }
 
 /* Tempo zones */
 .tempo { display: flex; flex-direction: column; gap: 8px; width: 100%; text-align: left; }
-.lesson-clock .tempo { margin-top: 14px; padding: 12px 14px; border-radius: 20px; background: var(--soft); }
+.tempo-row { margin-top: 18px; padding: 14px 16px; border-radius: 22px; background: var(--soft); }
+.more-opts { border: 0; background: transparent; padding: 9px 6px; font-weight: 900; font-size: 14px; color: var(--navy-2); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; opacity: 0.75; }
+.more-opts:hover { opacity: 1; }
 .tempo-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tempo-head b { font-family: var(--display); font-size: 19px; font-weight: 800; }
 .tempo-chip { margin-left: auto; padding: 4px 12px; border-radius: 999px; font-weight: 900; font-size: 13.5px; background: #fff; }

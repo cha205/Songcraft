@@ -9,7 +9,7 @@ import type { IconName } from '../components/Icon'
 import { StepHead } from '../components/StepHead'
 import { TempoSlider } from '../components/TempoSlider'
 import { FAMOUS_BEATS, SHOW_FAMOUS_BEATS, famousGrid } from '../data/famousBeats'
-import { DRUM_FITS, HATS, KICKS, KITS, SNARES, beatStory, option } from '../data/genres'
+import { HATS, KICKS, KITS, SNARES, beatStory, option } from '../data/genres'
 import type { Feeling, Genre, KitId, LayerOption } from '../data/genres'
 
 type Stage = 'learn' | 'tune'
@@ -40,13 +40,13 @@ type Props = {
 }
 
 const STAGES: { id: Stage; label: string }[] = [
-  { id: 'learn', label: 'Learn' },
+  { id: 'learn', label: 'Build' },
   { id: 'tune', label: 'Fine-tune' },
 ]
-const LAYERS: { key: keyof Lesson; title: string; role: string; icon: IconName; options: LayerOption[] }[] = [
-  { key: 'kick', title: 'Kick', role: 'The heartbeat. Low and deep.', icon: 'kick', options: KICKS },
-  { key: 'snare', title: 'Snare', role: 'The clap. Sharp and loud.', icon: 'snare', options: SNARES },
-  { key: 'hat', title: 'Hi-hat', role: 'The clock that keeps time.', icon: 'hihat', options: HATS },
+const LAYERS: { key: keyof Lesson; title: string; role: string; icon: IconName; options: LayerOption[]; basic: number }[] = [
+  { key: 'kick', title: 'Kick', role: 'The heartbeat. Low and deep.', icon: 'kick', options: KICKS, basic: 6 },
+  { key: 'snare', title: 'Snare', role: 'The clap. Sharp and loud.', icon: 'snare', options: SNARES, basic: 4 },
+  { key: 'hat', title: 'Hi-hat', role: 'The clock that keeps time.', icon: 'hihat', options: HATS, basic: 5 },
 ]
 
 export function DrumsStep(p: Props) {
@@ -68,7 +68,8 @@ export function DrumsStep(p: Props) {
     setTried(null)
   }
   const recommended = p.genre.drums[p.feeling]
-  const fits = DRUM_FITS[p.genre.id]
+  // The original patterns show first; the newer ones (including None) sit behind "More patterns" so each row stays tidy.
+  const [more, setMore] = useState<Record<string, boolean>>({})
   const go = (s: Stage) => {
     p.onStop()
     setStage(s)
@@ -97,19 +98,18 @@ export function DrumsStep(p: Props) {
 
         {stage === 'learn' && (
           <>
-            <Coach icon="learn">
-              Pick a pattern for each drum, from 1 to 3. Every option works; the ones marked {p.genre.name} are what this style usually uses. Press play and switch while it
-              plays to hear the difference.
-            </Coach>
+            <Coach icon="learn">Pick a pattern for each drum, from 1 to 3. Press play and switch options while it plays to hear the difference.</Coach>
             <div className="lesson">
               <div className="lesson-clock">
                 <BeatClock grid={p.beat} step={p.playing ? p.step : -1} bpm={p.bpm} />
                 {playBtn('Play my beat')}
-                <TempoSlider genre={p.genre} bpm={p.bpm} onBpm={p.onBpm} />
               </div>
               <div className="lesson-layers">
                 {LAYERS.map((L, i) => {
                   const sel = option(L.options, p.lesson[L.key])
+                  const extra = L.options.slice(L.basic)
+                  const open = more[L.key] || extra.some((o) => o.id === sel.id)
+                  const shown = open ? L.options : L.options.slice(0, L.basic)
                   return (
                     <div key={L.key} className={`layer-row l-${L.key}`}>
                       <div className="layer-head">
@@ -121,12 +121,17 @@ export function DrumsStep(p: Props) {
                         </span>
                       </div>
                       <div className="layer-options">
-                        {L.options.map((o) => (
+                        {shown.map((o) => (
                           <button key={o.id} className={`opt${o.id === sel.id ? ' on' : ''}`} onClick={() => p.onLesson({ ...p.lesson, [L.key]: o.id })}>
                             {o.name}
-                            {o.id === recommended[L.key] ? <span className="fit">Best for {p.genre.name}</span> : fits[L.key].includes(o.id) && <span className="fit">Fits {p.genre.name}</span>}
+                            {o.id === recommended[L.key] && <span className="fit">Fits {p.genre.name}</span>}
                           </button>
                         ))}
+                        {extra.length > 0 && !extra.some((o) => o.id === sel.id) && (
+                          <button className="more-opts" onClick={() => setMore({ ...more, [L.key]: !open })}>
+                            {open ? 'Fewer' : 'More patterns'}
+                          </button>
+                        )}
                       </div>
                       <p className="layer-why">{sel.why}</p>
                     </div>
@@ -139,6 +144,9 @@ export function DrumsStep(p: Props) {
                   </p>
                 </div>
               </div>
+            </div>
+            <div className="tempo-row">
+              <TempoSlider genre={p.genre} bpm={p.bpm} onBpm={p.onBpm} />
             </div>
             {SHOW_FAMOUS_BEATS && (
               <FamousBeats
